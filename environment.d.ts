@@ -12,8 +12,12 @@ declare global {
       NEXT_PUBLIC_BASE_URL: string;
 
       // live translator
-      TRANSLATE_API_URL?: string;
-      TRANSLATE_API_KEY?: string;
+      GEMINI_TRANSLATE_MODEL?: string;
+
+      // gemini live audio (tts)
+      GEMINI_API_KEY?: string;
+      GEMINI_TTS_MODEL?: string;
+      GEMINI_TTS_VOICE?: string;
     }
   }
 }

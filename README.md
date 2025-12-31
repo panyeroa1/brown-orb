@@ -128,6 +128,11 @@ zoom-clone/
 # disabled next.js telemetry
 NEXT_TELEMETRY_DISABLED=1
 
+# app base url
+NEXT_PUBLIC_BASE_URL=http://localhost:3000
+NEXT_PUBLIC_SERVER_URL=http://localhost:3000
+NEXTAUTH_URL=http://localhost:3000
+
 # clerk auth keys
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 CLERK_SECRET_KEY=sk_test_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
@@ -140,12 +145,13 @@ NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
 NEXT_PUBLIC_STREAM_API_KEY=xxxxxxxxxxxxxxxxxxxxxx
 STREAM_SECRET_KEY=XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
-# app base url
-NEXT_PUBLIC_BASE_URL=http://localhost:3000
+# live translator (Gemini)
+GEMINI_TRANSLATE_MODEL=gemini-flash-latest-lite
 
-# live translator (LibreTranslate or compatible API)
-TRANSLATE_API_URL=https://libretranslate.com/translate
-TRANSLATE_API_KEY=
+# gemini live audio (tts)
+GEMINI_API_KEY=
+GEMINI_TTS_MODEL=models/gemini-2.5-flash-native-audio-preview-12-2025
+GEMINI_TTS_VOICE=Orus
 
 ```
 
@@ -161,7 +167,10 @@ TRANSLATE_API_KEY=
 ### 6. Specify Public App URL
 
 1.  **Procedure**:
-    - Replace `http://localhost:3000` with the URL of your deployed application.
+    - Replace `http://localhost:3000` with the URL of your deployed application for:
+      - `NEXT_PUBLIC_BASE_URL`
+      - `NEXT_PUBLIC_SERVER_URL`
+      - `NEXTAUTH_URL`
 
 ### 7. Set Up Stream
 
@@ -194,12 +203,17 @@ TRANSLATE_API_KEY=
 
 ### 10. Configure Live Translator (optional)
 
-- Set `TRANSLATE_API_URL` to a LibreTranslate-compatible endpoint.
-- Set `TRANSLATE_API_KEY` if your provider requires authentication.
+- Set `GEMINI_API_KEY` (used for both translation and TTS).
+- Set `GEMINI_TRANSLATE_MODEL` to `gemini-flash-latest-lite` (or another Gemini model).
 
-11. Install Project Dependencies using `npm install --legacy-peer-deps` or `yarn install --legacy-peer-deps`.
+### 11. Configure Gemini Live Audio (TTS) (optional)
 
-12. Now app is fully configured 👍 and you can start using this app using either one of `npm run dev` or `yarn dev`.
+- Set `GEMINI_API_KEY` from your Google AI Studio project.
+- Optional: set `GEMINI_TTS_MODEL` and `GEMINI_TTS_VOICE`.
+
+12. Install Project Dependencies using `npm install --legacy-peer-deps` or `yarn install --legacy-peer-deps`.
+
+13. Now app is fully configured 👍 and you can start using this app using either one of `npm run dev` or `yarn dev`.
 
 **NOTE:** Please make sure to keep your API keys and configuration values secure and do not expose them publicly.
 

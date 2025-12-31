@@ -19,11 +19,15 @@ type TranslatorState = {
   speakerLang: string;
   captionBuffer: CaptionEntry[];
   mutedSpeakersForTTS: string[];
+  ttsEnabled: boolean;
+  ttsVoice: string;
   setEnabled: (enabled: boolean) => void;
   setAutoTranslateEnabled: (enabled: boolean) => void;
   setTargetLang: (lang: string) => void;
   setShowOriginal: (show: boolean) => void;
   setSpeakerLang: (lang: string) => void;
+  setTtsEnabled: (enabled: boolean) => void;
+  setTtsVoice: (voice: string) => void;
   upsertCaption: (caption: CaptionEntry) => void;
   updateCaptionTranslation: (utteranceId: string, translatedText: string) => void;
   clearCaptions: () => void;
@@ -39,11 +43,15 @@ export const useTranslatorStore = create<TranslatorState>((set) => ({
   speakerLang: "auto",
   captionBuffer: [],
   mutedSpeakersForTTS: [],
+  ttsEnabled: false,
+  ttsVoice: "",
   setEnabled: (enabled) => set({ enabled }),
   setAutoTranslateEnabled: (enabled) => set({ autoTranslateEnabled: enabled }),
   setTargetLang: (targetLang) => set({ targetLang }),
   setShowOriginal: (showOriginal) => set({ showOriginal }),
   setSpeakerLang: (speakerLang) => set({ speakerLang }),
+  setTtsEnabled: (ttsEnabled) => set({ ttsEnabled }),
+  setTtsVoice: (ttsVoice) => set({ ttsVoice }),
   upsertCaption: (caption) =>
     set((state) => {
       const next = [...state.captionBuffer];

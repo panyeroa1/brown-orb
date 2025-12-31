@@ -80,30 +80,37 @@ export async function POST(req: Request) {
     return NextResponse.json({ translatedText: cached.value });
   }
 
-  const apiUrl = process.env.TRANSLATE_API_URL;
-  if (!apiUrl) {
-    return NextResponse.json({ translatedText: text });
+  const geminiApiKey = process.env.GEMINI_API_KEY;
+  if (!geminiApiKey) {
+    return NextResponse.json(
+      { error: "Gemini API key is not configured" },
+      { status: 500 }
+    );
   }
 
-  const apiKey = process.env.TRANSLATE_API_KEY;
+  const model = process.env.GEMINI_TRANSLATE_MODEL ?? "gemini-flash-latest-lite";
+  const modelPath = model.startsWith("models/") ? model : `models/${model}`;
+
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 8000);
 
   try {
-    const response = await fetch(apiUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
-      },
-      body: JSON.stringify({
-        q: text,
-        source: sourceLang,
-        target: targetLang,
-        format: "text",
-      }),
-      signal: controller.signal,
-    });
+    const prompt = `Translate the following text from ${
+      sourceLang === "auto" ? "its detected language" : sourceLang
+    } to ${targetLang}. Return only the translated text.\n\n${text}`;
+
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/${modelPath}:generateContent?key=${geminiApiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0.2 },
+        }),
+        signal: controller.signal,
+      }
+    );
 
     if (!response.ok) {
       return NextResponse.json(
@@ -113,17 +120,13 @@ export async function POST(req: Request) {
     }
 
     const data = (await response.json()) as {
-      translatedText?: string;
-      translation?: string;
-      result?: string;
-      data?: { translations?: Array<{ translatedText?: string }> };
+      candidates?: Array<{
+        content?: { parts?: Array<{ text?: string }> };
+      }>;
     };
 
     const translatedText =
-      data.translatedText ??
-      data.translation ??
-      data.result ??
-      data.data?.translations?.[0]?.translatedText;
+      data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? "";
 
     if (!translatedText) {
       return NextResponse.json(

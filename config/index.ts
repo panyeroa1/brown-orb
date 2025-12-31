@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 
 export const siteConfig: Metadata = {
-  title: "Yoom",
-  description: "Modern Next.js powered Video calling app",
+  title: "Eburon Conference",
+  description: "Modern Eburon powered Video calling app",
   keywords: [
     "reactjs",
     "nextjs",
@@ -39,11 +39,11 @@ export const siteConfig: Metadata = {
     "css",
   ] as Array<string>,
   authors: {
-    name: "Sanidhya Kumar Verma",
-    url: "https://github.com/sanidhyy",
+    name: "Eburon Development",
+    url: "https://eburon.ai",
   },
 } as const;
 
 export const links = {
-  sourceCode: "https://github.com/sanidhyy/zoom-clone",
+  sourceCode: "https://eburon.ai",
 } as const;

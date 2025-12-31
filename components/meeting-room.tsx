@@ -21,6 +21,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { CaptionsTTS } from "@/components/translator/captions-tts";
 import { CaptionsOverlay } from "@/components/translator/captions-overlay";
 import { TranslatorModal } from "@/components/translator/translator-modal";
 import { createCaptionPublisher } from "@/lib/translator/captions/publisher";
@@ -104,7 +105,7 @@ export const MeetingRoom = () => {
     const publisher = createCaptionPublisher({
       call,
       speakerUserId: localParticipant.userId,
-      speakerName: localParticipant.user?.name ?? localParticipant.userId,
+      speakerName: localParticipant.name ?? localParticipant.userId,
       sourceLang: speakerLang,
     });
 
@@ -120,7 +121,7 @@ export const MeetingRoom = () => {
     captionsEnabled,
     callingState,
     localParticipant?.userId,
-    localParticipant?.user?.name,
+    localParticipant?.name,
     speakerLang,
   ]);
 
@@ -163,7 +164,7 @@ export const MeetingRoom = () => {
         const existing = chunkBufferRef.current.get(payload.utteranceId);
         const entry =
           existing ?? {
-            chunks: Array.from({ length: payload.chunkCount }).fill(""),
+            chunks: new Array<string>(payload.chunkCount).fill(""),
             count: payload.chunkCount,
           };
 
@@ -269,6 +270,7 @@ export const MeetingRoom = () => {
       </div>
 
       <CaptionsOverlay />
+      <CaptionsTTS localUserId={localParticipant?.userId} />
 
       <div className="fixed bottom-0 flex w-full flex-wrap items-center justify-center gap-5">
         <CallControls onLeave={() => router.push("/")} />

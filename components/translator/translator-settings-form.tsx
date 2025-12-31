@@ -1,5 +1,6 @@
 "use client";
 
+import { Input } from "@/components/ui/input";
 import { useTranslatorStore } from "@/store/use-translator";
 
 const TARGET_LANGUAGES = [
@@ -36,6 +37,10 @@ export const TranslatorSettingsForm = () => {
   const setTargetLang = useTranslatorStore((state) => state.setTargetLang);
   const setShowOriginal = useTranslatorStore((state) => state.setShowOriginal);
   const setSpeakerLang = useTranslatorStore((state) => state.setSpeakerLang);
+  const ttsEnabled = useTranslatorStore((state) => state.ttsEnabled);
+  const ttsVoice = useTranslatorStore((state) => state.ttsVoice);
+  const setTtsEnabled = useTranslatorStore((state) => state.setTtsEnabled);
+  const setTtsVoice = useTranslatorStore((state) => state.setTtsVoice);
 
   return (
     <div className="space-y-4">
@@ -120,6 +125,33 @@ export const TranslatorSettingsForm = () => {
             </option>
           ))}
         </select>
+      </div>
+
+      <div className="flex items-center justify-between gap-4 rounded-xl border border-white/10 bg-[#0F1720] px-4 py-3">
+        <div>
+          <p className="text-sm font-semibold text-white">Read aloud captions</p>
+          <p className="text-xs text-white/60">
+            Use Gemini Live Audio to speak captions locally.
+          </p>
+        </div>
+        <input
+          type="checkbox"
+          checked={ttsEnabled}
+          onChange={(event) => setTtsEnabled(event.target.checked)}
+          className="size-5 accent-violet-500"
+        />
+      </div>
+
+      <div className="rounded-xl border border-white/10 bg-[#0F1720] px-4 py-3">
+        <label className="text-sm font-semibold text-white">
+          Gemini voice (optional)
+        </label>
+        <Input
+          value={ttsVoice}
+          onChange={(event) => setTtsVoice(event.target.value)}
+          placeholder="e.g. Orus"
+          className="mt-2 border-white/10 bg-[#101b24] text-sm text-white placeholder:text-white/40 focus-visible:ring-emerald-500/60"
+        />
       </div>
     </div>
   );
