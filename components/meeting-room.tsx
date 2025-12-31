@@ -10,10 +10,10 @@ import {
   useCall,
   useCallStateHooks,
 } from "@stream-io/video-react-sdk";
-import { Languages, LayoutList, Users } from "lucide-react";
+import { ClosedCaption, LayoutList, Users } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 
 import {
   DropdownMenu,
@@ -22,19 +22,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { CaptionsTTS } from "@/components/translator/captions-tts";
-import { CaptionsOverlay } from "@/components/translator/captions-overlay";
-import { TranslatorModal } from "@/components/translator/translator-modal";
-import { createCaptionPublisher } from "@/lib/translator/captions/publisher";
 import { cn } from "@/lib/utils";
-import { useTranslatorStore } from "@/store/use-translator";
 
 import { EndCallButton } from "./end-call-button";
 import { Loader } from "./loader";
+import { TranscriptionOverlay } from "./transcription-overlay";
 
 type CallLayoutType = "grid" | "speaker-left" | "speaker-right";
-const MAX_EVENT_TEXT_LENGTH = 4000;
-const PARTIAL_EVENT_THROTTLE_MS = 100;
+
 const controlButtonClasses =
   "flex size-11 items-center justify-center rounded-[5px] border border-white/10 bg-white/5 text-white transition hover:bg-white/15";
 
@@ -43,67 +38,33 @@ export const MeetingRoom = () => {
   const searchParams = useSearchParams();
   const [showParticipants, setShowParticipants] = useState(false);
   const [layout, setLayout] = useState<CallLayoutType>("speaker-left");
-  const [isTranslatorOpen, setIsTranslatorOpen] = useState(false);
+  const [isCaptionsEnabled, setIsCaptionsEnabled] = useState(false);
 
   const call = useCall();
-  const { user, isLoaded } = useUser();
+  const { isLoaded } = useUser();
 
   const { useCallCallingState, useLocalParticipant } = useCallStateHooks();
   const callingState = useCallCallingState();
   const localParticipant = useLocalParticipant();
 
-  const captionsEnabled = useTranslatorStore((state) => state.enabled);
-  const autoTranslateEnabled = useTranslatorStore(
-    (state) => state.autoTranslateEnabled
-  );
-  const targetLang = useTranslatorStore((state) => state.targetLang);
-  const speakerLang = useTranslatorStore((state) => state.speakerLang);
-  const ttsVolume = useTranslatorStore((state) => state.ttsVolume);
-  const setEnabled = useTranslatorStore((state) => state.setEnabled);
-  const setAutoTranslateEnabled = useTranslatorStore(
-    (state) => state.setAutoTranslateEnabled
-  );
-  const setTargetLang = useTranslatorStore((state) => state.setTargetLang);
-  const setShowOriginal = useTranslatorStore((state) => state.setShowOriginal);
-  const setSpeakerLang = useTranslatorStore((state) => state.setSpeakerLang);
-  const setTtsEnabled = useTranslatorStore((state) => state.setTtsEnabled);
-  const setTtsVoice = useTranslatorStore((state) => state.setTtsVoice);
-  const setTtsVolume = useTranslatorStore((state) => state.setTtsVolume);
-  const upsertCaption = useTranslatorStore((state) => state.upsertCaption);
-  const updateCaptionTranslation = useTranslatorStore(
-    (state) => state.updateCaptionTranslation
-  );
+  const toggleCaptions = async () => {
+    if (!call) return;
 
-  const publisherRef = useRef<ReturnType<typeof createCaptionPublisher> | null>(
-    null
-  );
-  const partialGateRef = useRef(0);
-  const chunkBufferRef = useRef(
-    new Map<
-      string,
-      {
-        chunks: string[];
-        count: number;
+    try {
+      if (isCaptionsEnabled) {
+        await call.stopClosedCaptions();
+        setIsCaptionsEnabled(false);
+      } else {
+        // @ts-ignore - 'auto' is supported by Stream for language detection
+        await call.startClosedCaptions({ language: "auto" });
+        setIsCaptionsEnabled(true);
       }
-    >()
-  );
-  const inflightTranslationRef = useRef(new Set<string>());
-  const translationStateRef = useRef(
-    new Map<
-      string,
-      {
-        lastText: string;
-        lastAt: number;
-        inflight: boolean;
-        pendingText?: string;
-        pendingIsFinal?: boolean;
-      }
-    >()
-  );
-  const prefsLoadedRef = useRef(false);
+    } catch (error) {
+      console.error("Failed to toggle captions:", error);
+    }
+  };
 
   const isPersonalRoom = !!searchParams.get("personal");
-  const translatorIndicatorEnabled = captionsEnabled || autoTranslateEnabled;
 
   const CallLayout = () => {
     switch (layout) {
@@ -116,288 +77,10 @@ export const MeetingRoom = () => {
     }
   };
 
-  useEffect(() => {
-    if (!isLoaded || prefsLoadedRef.current) return;
-
-    const prefs = (user?.unsafeMetadata as Record<string, unknown> | undefined)
-      ?.translatorPrefs;
-    if (prefs && typeof prefs === "object") {
-      const data = prefs as Record<string, unknown>;
-
-      if (typeof data.enabled === "boolean") setEnabled(data.enabled);
-      if (typeof data.autoTranslateEnabled === "boolean") {
-        setAutoTranslateEnabled(data.autoTranslateEnabled);
-      }
-      if (typeof data.targetLang === "string" && data.targetLang) {
-        setTargetLang(data.targetLang);
-      }
-      if (typeof data.showOriginal === "boolean") {
-        setShowOriginal(data.showOriginal);
-      }
-      if (typeof data.speakerLang === "string" && data.speakerLang) {
-        setSpeakerLang(data.speakerLang);
-      }
-      if (typeof data.ttsEnabled === "boolean") {
-        setTtsEnabled(data.ttsEnabled);
-      }
-      if (typeof data.ttsVoice === "string") {
-        setTtsVoice(data.ttsVoice);
-      }
-      if (typeof data.ttsVolume === "number") {
-        setTtsVolume(data.ttsVolume);
-      }
-    }
-
-    prefsLoadedRef.current = true;
-  }, [
-    isLoaded,
-    user,
-    setAutoTranslateEnabled,
-    setEnabled,
-    setShowOriginal,
-    setSpeakerLang,
-    setTargetLang,
-    setTtsEnabled,
-    setTtsVoice,
-    setTtsVolume,
-  ]);
-
-  useEffect(() => {
-    if (callingState !== CallingState.JOINED) {
-      publisherRef.current?.stop();
-      publisherRef.current = null;
-      return;
-    }
-    if (!call || !localParticipant?.userId) return;
-
-    if (!captionsEnabled) {
-      publisherRef.current?.stop();
-      publisherRef.current = null;
-      return;
-    }
-
-    const publisher = createCaptionPublisher({
-      call,
-      speakerUserId: localParticipant.userId,
-      speakerName: localParticipant.name ?? localParticipant.userId,
-      sourceLang: speakerLang,
-      shouldCapture: () => !useTranslatorStore.getState().isTtsPlaying,
-    });
-
-    publisherRef.current = publisher;
-    publisher.start();
-
-    return () => {
-      publisher.stop();
-      publisherRef.current = null;
-    };
-  }, [
-    call,
-    captionsEnabled,
-    callingState,
-    localParticipant?.userId,
-    localParticipant?.name,
-    speakerLang,
-  ]);
-
-  useEffect(() => {
-    if (!call) return;
-
-    const translatePartialThrottleMs = 300;
-
-    const translateCaption = async (caption: {
-      utteranceId: string;
-      text: string;
-      sourceLang: string;
-      isFinal: boolean;
-    }) => {
-      const { autoTranslateEnabled: autoTranslate, targetLang: target } =
-        useTranslatorStore.getState();
-      if (!autoTranslate || !target || target === caption.sourceLang) return;
-
-      const state =
-        translationStateRef.current.get(caption.utteranceId) ?? {
-          lastText: "",
-          lastAt: 0,
-          inflight: false,
-        };
-
-      if (!caption.text || caption.text === state.lastText) {
-        if (caption.isFinal) {
-          translationStateRef.current.delete(caption.utteranceId);
-        }
-        return;
-      }
-
-      const now = Date.now();
-      if (!caption.isFinal && now - state.lastAt < translatePartialThrottleMs) {
-        state.pendingText = caption.text;
-        state.pendingIsFinal = caption.isFinal;
-        translationStateRef.current.set(caption.utteranceId, state);
-        return;
-      }
-
-      if (state.inflight) {
-        state.pendingText = caption.text;
-        state.pendingIsFinal = caption.isFinal;
-        translationStateRef.current.set(caption.utteranceId, state);
-        return;
-      }
-
-      state.inflight = true;
-      state.lastAt = now;
-      state.lastText = caption.text;
-      translationStateRef.current.set(caption.utteranceId, state);
-
-      inflightTranslationRef.current.add(caption.utteranceId);
-
-      try {
-        const response = await fetch("/api/translate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            text: caption.text,
-            sourceLang: caption.sourceLang,
-            targetLang: target,
-          }),
-        });
-
-        if (!response.ok) return;
-
-        const data = (await response.json()) as { translatedText?: string };
-        if (!data.translatedText) return;
-
-        updateCaptionTranslation(caption.utteranceId, data.translatedText);
-      } finally {
-        inflightTranslationRef.current.delete(caption.utteranceId);
-        const nextState = translationStateRef.current.get(caption.utteranceId);
-        if (!nextState) return;
-
-        nextState.inflight = false;
-        translationStateRef.current.set(caption.utteranceId, nextState);
-
-        if (
-          nextState.pendingText &&
-          nextState.pendingText !== nextState.lastText
-        ) {
-          const pendingText = nextState.pendingText;
-          const pendingIsFinal = Boolean(nextState.pendingIsFinal);
-          nextState.pendingText = undefined;
-          nextState.pendingIsFinal = undefined;
-          translationStateRef.current.set(caption.utteranceId, nextState);
-          await translateCaption({
-            ...caption,
-            text: pendingText,
-            isFinal: pendingIsFinal,
-          });
-          return;
-        }
-
-        if (caption.isFinal) {
-          translationStateRef.current.delete(caption.utteranceId);
-        }
-      }
-    };
-
-    const handleCaptionPayload = async (payload: {
-      type?: string;
-      v?: number;
-      speakerUserId?: string;
-      speakerName?: string;
-      sourceLang?: string;
-      text?: string;
-      ts?: number;
-      utteranceId?: string;
-      chunkIndex?: number;
-      chunkCount?: number;
-    }) => {
-      if (payload.v !== 1) return;
-      if (payload.type !== "caption.partial" && payload.type !== "caption.final")
-        return;
-      if (!payload.utteranceId || !payload.speakerUserId) return;
-      if (typeof payload.text !== "string") return;
-      if (payload.text.length > MAX_EVENT_TEXT_LENGTH) return;
-
-      if (payload.type === "caption.partial") {
-        const now = Date.now();
-        if (now - partialGateRef.current < PARTIAL_EVENT_THROTTLE_MS) return;
-        partialGateRef.current = now;
-      }
-
-      let text = payload.text.trim();
-      if (!text) return;
-
-      if (
-        typeof payload.chunkCount === "number" &&
-        payload.chunkCount > 1 &&
-        typeof payload.chunkIndex === "number"
-      ) {
-        const existing = chunkBufferRef.current.get(payload.utteranceId);
-        const entry =
-          existing ?? {
-            chunks: new Array<string>(payload.chunkCount).fill(""),
-            count: payload.chunkCount,
-          };
-
-        entry.chunks[payload.chunkIndex] = text;
-        chunkBufferRef.current.set(payload.utteranceId, entry);
-
-        if (entry.chunks.some((chunk) => !chunk)) return;
-
-        text = entry.chunks.join("");
-        chunkBufferRef.current.delete(payload.utteranceId);
-      }
-
-      const speakerName =
-        payload.speakerName ||
-        (payload.speakerUserId === localParticipant?.userId ? "You" : undefined);
-
-      const caption = {
-        utteranceId: payload.utteranceId,
-        speakerUserId: payload.speakerUserId,
-        speakerName,
-        sourceLang: payload.sourceLang ?? "auto",
-        text,
-        isFinal: payload.type === "caption.final",
-        ts: payload.ts ?? Date.now(),
-      };
-
-      upsertCaption(caption);
-
-      await translateCaption(caption);
-    };
-
-    const handleCustomEvent = (event: {
-      custom?: unknown;
-      payload?: unknown;
-      data?: unknown;
-    }) => {
-      const raw = event.custom ?? event.payload ?? event.data ?? event;
-      if (!raw || typeof raw !== "object") return;
-      void handleCaptionPayload(raw as Record<string, unknown>);
-    };
-
-    const unsubscribe = call.on("custom", handleCustomEvent);
-
-    return () => {
-      if (typeof unsubscribe === "function") {
-        unsubscribe();
-      }
-    };
-  }, [call, localParticipant?.userId, updateCaptionTranslation, upsertCaption]);
-
   if (callingState !== CallingState.JOINED) return <Loader />;
 
   return (
     <div className="relative min-h-screen w-full overflow-hidden text-white">
-      {translatorIndicatorEnabled && (
-        <div className="absolute left-4 top-4 z-40 rounded-full bg-black/60 px-3 py-1 text-xs font-semibold text-white/90 backdrop-blur-sm">
-          {autoTranslateEnabled
-            ? `CC • ${targetLang.toUpperCase()}`
-            : "Captions On"}
-        </div>
-      )}
-
       <div className="relative flex size-full items-center justify-center px-4 pb-28 pt-4">
         <div className="flex size-full items-center">
           <CallLayout />
@@ -412,8 +95,7 @@ export const MeetingRoom = () => {
         </div>
       </div>
 
-      <CaptionsOverlay />
-      <CaptionsTTS localUserId={localParticipant?.userId} />
+      {isCaptionsEnabled && <TranscriptionOverlay />}
 
       <div className="fixed bottom-0 left-0 right-0 z-50 flex w-full flex-wrap items-center justify-center gap-2 border-t border-white/10 bg-black/80 px-3 py-3 backdrop-blur-md">
         <CallControls onLeave={() => router.push("/")} />
@@ -446,25 +128,21 @@ export const MeetingRoom = () => {
         </DropdownMenu>
 
         <button
-          onClick={() => setIsTranslatorOpen(true)}
-          title="Live Translator"
+          onClick={toggleCaptions}
+          title={isCaptionsEnabled ? "Disable Captions" : "Enable Captions"}
+          className={cn(
+            controlButtonClasses,
+            "relative",
+            isCaptionsEnabled && "bg-emerald-500/20 text-emerald-400 border-emerald-500/50"
+          )}
         >
-          <div
-            className={cn(
-              "relative cursor-pointer",
-              controlButtonClasses,
-              captionsEnabled
-                ? "bg-emerald-500/80 hover:bg-emerald-500"
-                : "bg-white/5 hover:bg-white/15"
-            )}
-          >
-            <Languages size={20} className="text-white" />
-            {captionsEnabled && (
-              <span className="absolute -right-1 -top-1 rounded-full bg-white px-1 text-[10px] font-bold text-black">
-                CC
-              </span>
-            )}
-          </div>
+          <ClosedCaption size={20} />
+          {isCaptionsEnabled && (
+            <span className="absolute -right-1 -top-1 flex h-3 w-3">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex h-3 w-3 rounded-full bg-emerald-500"></span>
+            </span>
+          )}
         </button>
 
         <CallStatsButton />
@@ -482,11 +160,6 @@ export const MeetingRoom = () => {
 
         {!isPersonalRoom && <EndCallButton />}
       </div>
-
-      <TranslatorModal
-        open={isTranslatorOpen}
-        onOpenChange={setIsTranslatorOpen}
-      />
     </div>
   );
 };
