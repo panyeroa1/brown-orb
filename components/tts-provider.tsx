@@ -101,8 +101,8 @@ export function TTSProvider({ children, initialUserId }: { children: React.React
           transcript: text,
           voice: { mode: "id", id: "9c7e6604-52c6-424a-9f9f-2c4ad89f3bb9" },
           output_format: {
-            container: "wav",
-            encoding: "pcm_s16le",
+            container: "mp3",
+            encoding: "mp3",
             sample_rate: 44100,
           },
         }),
@@ -111,6 +111,12 @@ export function TTSProvider({ children, initialUserId }: { children: React.React
       if (!response.ok) throw new Error(`Cartesia TTS Error: ${await response.text()}`);
 
       const audioBlob = await response.blob();
+      console.log(`[TTS] Received Audio Blob: ${audioBlob.size} bytes, Type: ${audioBlob.type}`);
+      
+      if (audioBlob.size < 100) {
+           throw new Error("Received empty or invalid audio blob from TTS provider");
+      }
+
       const audioUrl = URL.createObjectURL(audioBlob);
       const audioPlayer = new Audio(audioUrl);
       
