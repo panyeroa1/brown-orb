@@ -50,17 +50,24 @@ export async function getTranslation(
 export async function saveTranslation(
   entry: Omit<TranslationEntry, "id" | "created_at">
 ): Promise<{ success: boolean; error?: string }> {
+  console.log("[saveTranslation] Attempting to save entry:", entry);
   try {
-    const { error } = await supabase.from("translations").insert([entry]);
+    const { data, error } = await supabase.from("translations").insert([entry]);
 
     if (error) {
-      console.error("Failed to save translation:", error);
+      console.error("[saveTranslation] Supabase error detail:", {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code,
+      });
       return { success: false, error: error.message };
     }
 
+    console.log("[saveTranslation] Success! Row inserted:", data);
     return { success: true };
   } catch (e) {
-    console.error("Error saving translation:", e);
+    console.error("[saveTranslation] Unexpected exception:", e);
     return {
       success: false,
       error: e instanceof Error ? e.message : "Unknown error",
