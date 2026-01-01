@@ -20,6 +20,7 @@ interface TTSContextType {
   nowPlaying: string | null;
   hasUserInteracted: boolean;
   enableAudio: () => void;
+  disableAudio: () => void;
 }
 
 const TTSContext = createContext<TTSContextType | undefined>(undefined);
@@ -62,13 +63,27 @@ export function TTSProvider({ children, initialUserId }: { children: React.React
       return sentences ? sentences.map((s) => s.trim()) : [];
     };
 
+    const getErrorMessage = (error: any): string => {
+      if (error instanceof Error) return error.message;
+      if (typeof error === "string") return error;
+      try {
+        return JSON.stringify(error);
+      } catch {
+        return "Unknown error";
+      }
+    };
+
     const fetchSupabase = async (url: string) => {
       const response = await fetch(url, {
         headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
       });
       if (!response.ok) {
-        const err = await response.json();
-        throw new Error(`Supabase Error: ${err.message}`);
+        try {
+            const err = await response.json();
+            throw new Error(`Supabase Error: ${err.message || JSON.stringify(err)}`);
+        } catch (e: any) {
+            throw new Error(`Supabase Error: ${response.statusText}`);
+        }
       }
       return response.json();
     };
@@ -87,7 +102,7 @@ export function TTSProvider({ children, initialUserId }: { children: React.React
           voice: { mode: "id", id: "9c7e6604-52c6-424a-9f9f-2c4ad89f3bb9" },
           output_format: {
             container: "wav",
-            encoding: "pcm_f32le",
+            encoding: "pcm_s16le",
             sample_rate: 44100,
           },
         }),
@@ -98,19 +113,9 @@ export function TTSProvider({ children, initialUserId }: { children: React.React
       const audioBlob = await response.blob();
       const audioUrl = URL.createObjectURL(audioBlob);
       const audioPlayer = new Audio(audioUrl);
-      // We rely on the context state 'isMuted' for the UI, but for the actual audio element:
-      // Since specific mute implementation was requested to just set property. 
-      // Ideally we'd capture the ref value. For now we assume unmuted playback if system is enabled.
-      // If user clicks mute, we can set ALL future audio to muted or volume 0.
-      // Since we don't have a mutable ref to the *currently playing* audio easily, 
-      // we will just set the property on creation.
-      // To improve: Ref to current Audio object.
-      // For now:
-      audioPlayer.muted = false; // We use isMuted logic to potentially skip play or vol 0? 
-      // Actually standard HTML Audio mute is sufficient if we set it.
-      // We need a ref to access the latest isMuted state inside this async closure.
-      // Let's use a small helper for real-time mute check if we wanted, but let's stick to simple "set at start" for now
-      // or check the state setter wrapper.
+      
+      // Safety: Configure audio for broader compatibility
+      audioPlayer.preload = "auto";
 
       await new Promise<void>((resolve, reject) => {
         audioPlayer.onended = () => {
@@ -118,8 +123,20 @@ export function TTSProvider({ children, initialUserId }: { children: React.React
           resolve();
         };
         audioPlayer.onerror = (e) => {
+          const err = audioPlayer.error;
           URL.revokeObjectURL(audioUrl);
-          reject(e);
+          // extraction detailed media error
+          let msg = "Audio Playback Failed";
+          if (err) {
+              switch (err.code) {
+                  case err.MEDIA_ERR_ABORTED: msg = "Playback Aborted"; break;
+                  case err.MEDIA_ERR_NETWORK: msg = "Network Error"; break;
+                  case err.MEDIA_ERR_DECODE: msg = "Decoding Error (Bad Format)"; break;
+                  case err.MEDIA_ERR_SRC_NOT_SUPPORTED: msg = "Source Not Supported"; break;
+                  default: msg = `Unknown Media Error: ${err.message}`;
+              }
+          }
+          reject(new Error(msg));
         };
         const playPromise = audioPlayer.play();
         if (playPromise !== undefined) {
@@ -161,7 +178,7 @@ export function TTSProvider({ children, initialUserId }: { children: React.React
             playbackQueue.current.unshift(sentence);
           } else {
             console.error("Playback Error:", error);
-            setStatus(`ERROR: ${error.message}`);
+            setStatus(`ERROR: ${getErrorMessage(error)}`);
             setStatusType("error");
           }
         }
@@ -202,7 +219,7 @@ export function TTSProvider({ children, initialUserId }: { children: React.React
         }
       } catch (error: any) {
         console.error("Sentence Finder Error:", error);
-        setStatus(`Monitor Error: ${error.message}`);
+        setStatus(`Monitor Error: ${getErrorMessage(error)}`);
         setStatusType("error");
         if (mainLoopInterval) clearInterval(mainLoopInterval);
       }
@@ -239,7 +256,7 @@ export function TTSProvider({ children, initialUserId }: { children: React.React
         animationFrameId = requestAnimationFrame(playbackManager);
         mainLoopInterval = setInterval(sentenceFinder, FETCH_INTERVAL_MS);
       } catch (error: any) {
-        setStatus(`Init Failed: ${error.message}`);
+        setStatus(`Init Failed: ${getErrorMessage(error)}`);
         setStatusType("error");
       }
     };
@@ -258,6 +275,11 @@ export function TTSProvider({ children, initialUserId }: { children: React.React
     new Audio().play().catch(() => {});
   };
 
+  const disableAudio = () => {
+    setHasUserInteracted(false);
+    setStatus("Stopped.");
+  };
+
   const value = {
     targetUserId,
     setTargetUserId,
@@ -267,7 +289,8 @@ export function TTSProvider({ children, initialUserId }: { children: React.React
     statusType,
     nowPlaying,
     hasUserInteracted,
-    enableAudio
+    enableAudio,
+    disableAudio
   };
 
   return <TTSContext.Provider value={value}>{children}</TTSContext.Provider>;

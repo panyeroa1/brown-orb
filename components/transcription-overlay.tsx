@@ -82,17 +82,22 @@ export const TranscriptionOverlay = ({
         return;
       }
 
-      console.log(`[TranscriptionOverlay] Flow START: "${line.text}" | Meeting: ${meetingId}`);
+      console.log(`[TranscriptionOverlay] Flow START: "${line.text}" | Meeting: ${meetingId} | Lang: ${targetLanguage} | ID: ${sbUserId || userId}`);
       const originalText = line.text;
       let translatedText: string | null = null;
 
       // 1. Handle Translation if needed
       if (targetLanguage !== "off") {
-        console.log(`[TranscriptionOverlay] Target language is "${targetLanguage}". Requesting Gemini translation...`);
-        translatedText = await getTranslation(originalText, targetLanguage);
+        console.log(`[TranscriptionOverlay] Requesting translation for: "${originalText}" to "${targetLanguage}"`);
+        try {
+            translatedText = await getTranslation(originalText, targetLanguage);
+        } catch (e) {
+            console.error("[TranscriptionOverlay] getTranslation FAILED:", e);
+        }
         
+        console.log(`[TranscriptionOverlay] translatedText result:`, translatedText);
+
         if (translatedText) {
-          console.log(`[TranscriptionOverlay] Gemini returned: "${translatedText}"`);
           // Update UI with translation
           setLines((prev) =>
             prev.map((l) => (l.id === line.id ? { ...l, translatedText: translatedText! } : l))
@@ -118,7 +123,7 @@ export const TranscriptionOverlay = ({
           
           return; // Flow complete
         } else {
-          console.warn(`[TranscriptionOverlay] Gemini returned empty. Skipping save.`);
+          console.warn(`[TranscriptionOverlay] Translation returned EMPTY or NULL for language: ${targetLanguage}`);
         }
       } else {
         console.log(`[TranscriptionOverlay] Translation is OFF. Skipping translation flow.`);

@@ -3,7 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 const OLLAMA_API_KEY = process.env.OLLAMA_API_KEY;
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "gpt-oss:120b";
 const OLLAMA_API_URL = "https://ollama.com/api";
-const USE_GOOGLE_FALLBACK = process.env.GOOGLE_FREE_TRANSLATE === "1";
+// Default to TRUE unless explicitly disabled with "0"
+const USE_GOOGLE_FALLBACK = process.env.GOOGLE_FREE_TRANSLATE !== "0";
 
 export async function GET() {
   console.log("[TranslateAPI] GET request received");
@@ -28,6 +29,8 @@ export async function POST(request: NextRequest) {
 
     const prompt = `Translate the following text from ${source_lang} to ${target_lang}. Return ONLY the translated text without any explanations or extra characters: "${text}"`;
 
+    const attemptLogs: string[] = [];
+    
     // --- Provider 1: Ollama Cloud (Primary) ---
     if (OLLAMA_API_KEY) {
       try {
@@ -58,12 +61,15 @@ export async function POST(request: NextRequest) {
         } else {
           const errData = await ollamaResponse.json().catch(() => ({}));
           console.warn("[TranslateAPI] Ollama failed:", ollamaResponse.status, errData);
+          attemptLogs.push(`Ollama Failed: ${ollamaResponse.status}`);
         }
-      } catch (e) {
+      } catch (e: any) {
         console.warn("[TranslateAPI] Ollama Exception:", e);
+        attemptLogs.push(`Ollama Exception: ${e.message}`);
       }
     } else {
-      console.warn("[TranslateAPI] OLLAMA_API_KEY not configured");
+        console.warn("[TranslateAPI] OLLAMA_API_KEY not configured");
+        attemptLogs.push("Ollama: Skipped (No Key)");
     }
 
     // --- Provider 2: Google Free (Final Fallback) ---
@@ -79,14 +85,19 @@ export async function POST(request: NextRequest) {
             console.log("[TranslateAPI] Google Free success");
             return NextResponse.json({ translated_text: translatedText, provider: "google-free" });
           }
+        } else {
+            attemptLogs.push(`Google Failed: ${googleResponse.status}`);
         }
-      } catch (e) {
+      } catch (e: any) {
         console.error("[TranslateAPI] Google Free fallback failed:", e);
+        attemptLogs.push(`Google Exception: ${e.message}`);
       }
+    } else {
+        attemptLogs.push("Google: Skipped (Disabled)");
     }
 
     return NextResponse.json(
-      { error: "All translation providers failed" },
+      { error: "All translation providers failed", details: attemptLogs },
       { status: 502 }
     );
   } catch (error) {

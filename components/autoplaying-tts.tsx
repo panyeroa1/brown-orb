@@ -24,7 +24,8 @@ export function AutoPlayingTTS({ userId }: AutoPlayingTTSProps) {
     statusType,
     nowPlaying,
     hasUserInteracted,
-    enableAudio
+    enableAudio,
+    disableAudio
   } = useTTS();
 
   return (
@@ -54,12 +55,20 @@ export function AutoPlayingTTS({ userId }: AutoPlayingTTSProps) {
          />
       </div>
 
-      {!hasUserInteracted && (
+      {!hasUserInteracted ? (
         <Button 
             onClick={enableAudio} 
-            className="w-full bg-purple-600 hover:bg-purple-700 text-white text-xs py-1 h-8"
+            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs py-1 h-8 font-semibold shadow-lg shadow-emerald-900/20 transition-all active:scale-[0.98]"
         >
-            Enable Audio System
+            Start Live Listening
+        </Button>
+      ) : (
+        <Button 
+            onClick={disableAudio} 
+            variant="destructive"
+            className="w-full bg-red-600/80 hover:bg-red-700 text-white text-xs py-1 h-8 transition-all active:scale-[0.98]"
+        >
+            Stop Listening
         </Button>
       )}
 
