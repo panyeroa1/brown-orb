@@ -187,3 +187,39 @@ How it was tested:
 Test result:
 - PASS
 
+Task ID: T-0016
+Title: Responsive UI and Speaker List Polish
+Status: IN-PROGRESS
+Owner: Miles
+Related repo or service: Orbit
+Branch: main
+Created: 2026-01-04 00:30
+Last updated: 2026-01-04 00:30
+
+START LOG (fill this before you start coding)
+
+Timestamp: 2026-01-04 00:30
+Current behavior or state:
+- Host screen/Speaker view was not fully responsive to viewport height/width (Fixed).
+- `useMeetingSpeakers` hook relies on `transcript_segments` table which is now bypassed for live speech.
+
+Plan and scope for this task:
+- Document responsive UI changes in task log (Done).
+- Refactor `useMeetingSpeakers` to use Stream SDK participants instead of DB polling.
+- Ensure the speaker list updates in real-time as users join/leave the call.
+
+Files or modules expected to change:
+- app/globals.css (Already modified)
+- hooks/use-meeting-speakers.ts
+
+Risks or things to watch out for:
+- Mapping participant IDs to display names if Clerk names aren't available for everyone.
+
+WORK CHECKLIST
+
+- [x] Implement responsive host screen CSS
+- [/] Refactor `useMeetingSpeakers` to use Stream SDK
+- [ ] Verify speaker list updates live
+- [ ] Final build check
+
+END LOG (fill this after you finish coding and testing)
