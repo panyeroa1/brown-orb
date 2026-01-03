@@ -83,53 +83,14 @@ export const TranscriptionOverlay = ({
       }
 
       console.log(`[TranscriptionOverlay] Flow START: "${line.text}" | Meeting: ${meetingId} | Lang: ${targetLanguage} | ID: ${sbUserId || userId}`);
+      console.log(`[TranscriptionOverlay] Flow START: "${line.text}" | Meeting: ${meetingId} | Lang: ${targetLanguage} | ID: ${sbUserId || userId}`);
       const originalText = line.text;
-      let translatedText: string | null = null;
 
-      // 1. Handle Translation if needed
-      if (targetLanguage !== "off") {
-        console.log(`[TranscriptionOverlay] Requesting translation for: "${originalText}" to "${targetLanguage}"`);
-        try {
-            translatedText = await getTranslation(originalText, targetLanguage);
-        } catch (e) {
-            console.error("[TranscriptionOverlay] getTranslation FAILED:", e);
-        }
-        
-        console.log(`[TranscriptionOverlay] translatedText result:`, translatedText);
+      // New Architecture: Listeners define their own translation.
+      // We ONLY save the transcription (source text) here.
+      // Translation happens client-side for the TTS listener.
 
-        if (translatedText) {
-          // Update UI with translation
-          setLines((prev) =>
-            prev.map((l) => (l.id === line.id ? { ...l, translatedText: translatedText! } : l))
-          );
-
-          // 2. Save translation to Supabase
-          // Use the SPEAKER's ID so listeners can query by speaker to get TTS
-          const speakerIdentifier = line.speakerId || userId || sbUserId || "anonymous";
-          const { success, error } = await saveTranslation({
-            user_id: speakerIdentifier,
-            meeting_id: meetingId,
-            source_lang: "auto",
-            target_lang: targetLanguage,
-            original_text: originalText,
-            translated_text: translatedText,
-          });
-          
-          if (success) {
-            console.log(`[TranscriptionOverlay] Successfully SAVED to public.translations.`);
-          } else {
-            console.error(`[TranscriptionOverlay] FAILED to save to public.translations:`, error);
-          }
-          
-          return; // Flow complete
-        } else {
-          console.warn(`[TranscriptionOverlay] Translation returned EMPTY or NULL for language: ${targetLanguage}`);
-        }
-      } else {
-        console.log(`[TranscriptionOverlay] Translation is OFF. Skipping translation flow.`);
-      }
-
-      // 3. Fallback: Save as regular transcription if translation is off or failed
+      // Save as regular transcription
       await saveTranscription({
         user_id: userId || line.speakerId || "anonymous",
         room_name: roomName,
@@ -260,11 +221,7 @@ export const TranscriptionOverlay = ({
                 <span className="animate-typewriter">{line.text}</span>
               </p>
             </div>
-            {line.translatedText && (
-              <p className="ml-10 text-left text-xs font-medium italic tracking-wide text-emerald-400 [text-shadow:_1px_1px_2px_rgba(0,0,0,0.8)] md:text-sm">
-                {line.translatedText}
-              </p>
-            )}
+
           </div>
         );
       })}

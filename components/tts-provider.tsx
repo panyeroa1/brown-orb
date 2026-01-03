@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useRef, useState } from "react";
+import { getTranslation } from "@/lib/translate-service";
 
 // --- CONFIGURATION (from environment variables) ---
 const CARTESIA_API_KEY = process.env.NEXT_PUBLIC_CARTESIA_API_KEY || "";
@@ -9,7 +10,7 @@ const CARTESIA_VOICE_ID = process.env.NEXT_PUBLIC_CARTESIA_VOICE_ID || "9c7e6604
 const CARTESIA_URL = "https://api.cartesia.ai/tts/bytes";
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
-const SUPABASE_REST_URL = `${SUPABASE_URL}/rest/v1/speech_translations`;
+const SUPABASE_REST_URL = `${SUPABASE_URL}/rest/v1/transcript_segments`;
 const FETCH_INTERVAL_MS = 3000;
 
 interface TTSContextType {
@@ -38,7 +39,7 @@ export function useTTS() {
   return context;
 }
 
-export function TTSProvider({ children, initialUserId }: { children: React.ReactNode; initialUserId: string }) {
+export function TTSProvider({ children, initialUserId, targetLanguage }: { children: React.ReactNode; initialUserId: string; targetLanguage: string }) {
   const [targetUserId, setTargetUserId] = useState(initialUserId);
   const [isMuted, setIsMuted] = useState(false);
   const [status, setStatus] = useState("Waiting for interaction...");
@@ -237,12 +238,14 @@ export function TTSProvider({ children, initialUserId }: { children: React.React
       if (!targetUserId || !isMounted.current) return;
 
       try {
-        const url = `${SUPABASE_REST_URL}?speaker_name=eq.${targetUserId}&select=translated_text&order=created_at.desc&limit=1`;
+        // Poll transcript_segments (source text) instead of translations
+        // speaker_id column stores the speaker's ID
+        const url = `${SUPABASE_REST_URL}?speaker_id=eq.${targetUserId}&select=source_text&order=created_at.desc&limit=1`;
         const latestItems = await fetchSupabase(url);
 
-        if (latestItems.length === 0 || !latestItems[0].translated_text) return;
+        if (latestItems.length === 0 || !latestItems[0].source_text) return;
 
-        const currentText = latestItems[0].translated_text.trim();
+        const currentText = latestItems[0].source_text.trim();
         let newTextToProcess = "";
 
         if (
@@ -253,12 +256,40 @@ export function TTSProvider({ children, initialUserId }: { children: React.React
         }
 
         if (newTextToProcess) {
+          // Detect sentence boundaries
           const newSentences = splitIntoSentences(newTextToProcess);
+          
           if (newSentences.length > 0) {
-            playbackQueue.current.push(...newSentences);
+            // Update cursor immediately to avoid re-processing
             lastProcessedText.current = currentText;
-            setStatus(`Queueing ${newSentences.length} new sentence(s)...`);
-            setStatusType("info");
+
+            // TRANSLATION LOGIC
+            if (targetLanguage && targetLanguage !== "off") {
+                setStatus(`Translating ${newSentences.length} line(s) to ${targetLanguage}...`);
+                
+                for (const sentence of newSentences) {
+                    try {
+                        // Translate each sentence
+                        const translated = await getTranslation(sentence, targetLanguage);
+                        if (translated) {
+                            playbackQueue.current.push(translated);
+                        } else {
+                            console.warn("Translation failed, skipping TTS for:", sentence);
+                        }
+                    } catch (err) {
+                        console.error("Translation error during TTS flow:", err);
+                    }
+                }
+                setStatusType("info");
+            } else {
+                // If translation is OFF, do we play original? 
+                // Usually TTS is for translation. If off, we might just queue nothing.
+                // Or maybe the user WANTS to hear original TTS?
+                // Let's assume TTS is primarily for translation as per instruction.
+                // But for debug/accessibility it might be useful.
+                // For now, I'll log and SKIP if off, to avoid double audio (original + TTS).
+                // console.log("Translation off, skipping TTS");
+            }
           }
         }
       } catch (error: any) {
@@ -282,14 +313,13 @@ export function TTSProvider({ children, initialUserId }: { children: React.React
 
       setStatus("Fetching history...");
       try {
-        const initUrl = `${SUPABASE_REST_URL}?speaker_name=eq.${targetUserId}&select=translated_text&order=created_at.desc&limit=1`;
+        const initUrl = `${SUPABASE_REST_URL}?speaker_id=eq.${targetUserId}&select=source_text&order=created_at.desc&limit=1`;
         const initialItems = await fetchSupabase(initUrl);
 
-        if (initialItems.length > 0 && initialItems[0].translated_text) {
-          const allSentences = splitIntoSentences(initialItems[0].translated_text);
-          const initialSentencesToPlay = allSentences.slice(-2);
-          playbackQueue.current.push(...initialSentencesToPlay);
-          lastProcessedText.current = initialItems[0].translated_text.trim(); 
+        if (initialItems.length > 0 && initialItems[0].source_text) {
+          // Just set the cursor to the latest text so we don't replay old stuff
+          // or translate old stuff unnecessarily
+          lastProcessedText.current = initialItems[0].source_text.trim(); 
           setStatus("Monitoring for translations...");
         } else {
           lastProcessedText.current = "";
@@ -312,7 +342,7 @@ export function TTSProvider({ children, initialUserId }: { children: React.React
       if (mainLoopInterval) clearInterval(mainLoopInterval);
       cancelAnimationFrame(animationFrameId);
     };
-  }, [targetUserId, hasUserInteracted, selectedSinkId]);
+  }, [targetUserId, hasUserInteracted, selectedSinkId, targetLanguage]);
 
   const enableAudio = () => {
     setHasUserInteracted(true);
