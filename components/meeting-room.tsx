@@ -220,7 +220,7 @@ export const MeetingRoom = () => {
   const effectiveUserId = user?.id || sbUserId || "";
 
   return (
-    <TTSProvider initialUserId={effectiveUserId}>
+    <TTSProvider initialUserId={effectiveUserId} targetLanguage={translationLanguage}>
       <div className="relative min-h-screen w-full overflow-hidden text-white">
         <div className="relative flex size-full items-center justify-center px-4 pb-28 pt-4">
           <div className="flex size-full items-center">

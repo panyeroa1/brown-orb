@@ -3,7 +3,7 @@
 import { useCallStateHooks } from "@stream-io/video-react-sdk";
 import { useEffect, useState, useRef, useCallback } from "react";
 import { saveTranscription } from "@/lib/transcription-service";
-import { getTranslation, saveTranslation } from "@/lib/translate-service";
+
 
 import { signInAnonymously } from "@/lib/supabase";
 
