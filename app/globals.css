@@ -87,11 +87,18 @@ body::before {
   padding: 10px;
 }
 
-.str-video__speaker-layout__wrapper {
-  max-height: none;
+.str-video__speaker-layout__wrapper,
+.str-video__paginated-grid-layout {
+  max-height: none !important;
   height: 100vh !important;
   width: 100vw !important;
-  position: relative;
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+}
+
+.str-video__paginated-grid-layout video {
+  object-fit: cover !important;
 }
 
 .str-video__participant-details {

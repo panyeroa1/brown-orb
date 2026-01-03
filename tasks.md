@@ -287,4 +287,55 @@ How it was tested:
 Test result:
 - PASS
 
+Task ID: T-0019
+Title: Immersive Grid and Gallery View
+Status: DONE
+Owner: Miles
+Related repo or service: Orbit
+Branch: main
+Created: 2026-01-04 01:23
+Last updated: 2026-01-04 01:25
+
+START LOG (fill this before you start coding)
+
+Timestamp: 2026-01-04 01:23
+Current behavior or state:
+- Grid view was not full-screen and lacked a dedicated "Gallery" mode option.
+
+Plan and scope for this task:
+- Update CSS to force `PaginatedGridLayout` to be full-screen (`100vh`/`100vw`).
+- Add "Gallery" to `CallLayoutType` and layout switcher.
+
+Files or modules expected to change:
+- app/globals.css
+- components/meeting-room.tsx
+
+Risks or things to watch out for:
+- Overlapping UI elements.
+
+WORK CHECKLIST
+
+- [x] Update CSS for full-screen grid
+- [x] Add "Gallery" option to MeetingRoom
+- [x] Verify build
+
+END LOG (fill this after you finish coding and testing)
+
+Timestamp: 2026-01-04 01:25
+Summary of what actually changed:
+- Forced `.str-video__paginated-grid-layout` to full viewport dimensions.
+- Added "Gallery" mode which utilizes the immersive grid layout.
+- Set grid videos to `object-fit: cover` for a cohesive aesthetic.
+
+Files actually modified:
+- app/globals.css
+- components/meeting-room.tsx
+
+How it was tested:
+- npm run build
+
+Test result:
+- PASS
+
+
 

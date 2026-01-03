@@ -47,7 +47,7 @@ import { TranscriptionOverlay } from "./transcription-overlay";
 import { TranslationSidebar } from "./translation-sidebar";
 import { TTSProvider } from "./tts-provider";
 
-type CallLayoutType = "grid" | "speaker-left" | "speaker-right";
+type CallLayoutType = "grid" | "speaker-left" | "speaker-right" | "gallery";
 type STTProvider = "stream" | "webspeech" | "deepgram";
 
 const controlButtonClasses =
@@ -250,6 +250,7 @@ export const MeetingRoom = () => {
   const CallLayout = () => {
     switch (layout) {
       case "grid":
+      case "gallery":
         return <PaginatedGridLayout />;
       case "speaker-right":
         return <SpeakerLayout participantsBarPosition="left" />;
@@ -341,7 +342,7 @@ export const MeetingRoom = () => {
             <LayoutList size={20} className="text-white" />
           </DropdownMenuTrigger>
           <DropdownMenuContent className="border-white/10 bg-black/90 text-white">
-            {["Grid", "Speaker Left", "Speaker Right"].map((item, i) => (
+            {["Grid", "Speaker Left", "Speaker Right", "Gallery"].map((item, i) => (
               <div key={item + "-" + i}>
                 <DropdownMenuItem
                   className="cursor-pointer"
