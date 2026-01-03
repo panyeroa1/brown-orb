@@ -39,7 +39,7 @@ export function useTTS() {
   return context;
 }
 
-export function TTSProvider({ children, initialUserId, targetLanguage }: { children: React.ReactNode; initialUserId: string; targetLanguage: string }) {
+export function TTSProvider({ children, initialUserId, targetLanguage, meetingId }: { children: React.ReactNode; initialUserId: string; targetLanguage: string; meetingId: string }) {
   const [targetUserId, setTargetUserId] = useState(initialUserId);
   const [isMuted, setIsMuted] = useState(false);
   const [status, setStatus] = useState("Waiting for interaction...");
@@ -239,8 +239,8 @@ export function TTSProvider({ children, initialUserId, targetLanguage }: { child
 
       try {
         // Poll transcript_segments (source text) instead of translations
-        // speaker_id column stores the speaker's ID
-        const url = `${SUPABASE_REST_URL}?speaker_id=eq.${targetUserId}&select=source_text&order=created_at.desc&limit=1`;
+        // speaker_id column stores the speaker's ID, meeting_id ensures correct room
+        const url = `${SUPABASE_REST_URL}?speaker_id=eq.${targetUserId}&meeting_id=eq.${meetingId}&select=source_text&order=created_at.desc&limit=1`;
         const latestItems = await fetchSupabase(url);
 
         if (latestItems.length === 0 || !latestItems[0].source_text) return;
@@ -313,7 +313,7 @@ export function TTSProvider({ children, initialUserId, targetLanguage }: { child
 
       setStatus("Fetching history...");
       try {
-        const initUrl = `${SUPABASE_REST_URL}?speaker_id=eq.${targetUserId}&select=source_text&order=created_at.desc&limit=1`;
+        const initUrl = `${SUPABASE_REST_URL}?speaker_id=eq.${targetUserId}&meeting_id=eq.${meetingId}&select=source_text&order=created_at.desc&limit=1`;
         const initialItems = await fetchSupabase(initUrl);
 
         if (initialItems.length > 0 && initialItems[0].source_text) {
