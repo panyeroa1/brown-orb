@@ -195,11 +195,15 @@ body::before {
 
 @layer utilities {
   .flex-center {
-    @apply flex items-center justify-center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .flex-between {
-    @apply flex items-center justify-between;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
   }
 }
 
