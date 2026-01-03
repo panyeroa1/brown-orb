@@ -66,11 +66,12 @@ body::before {
 }
 
 /* Main speaker/host video - responsive height and width */
+/* Main speaker/host video - responsive height and width */
 .str-video__speaker-layout__spotlight {
   width: 100%;
-  height: calc(100vh - 160px); /* Account for control bar and padding */
-  max-height: calc(100vh - 160px);
-  min-height: 300px;
+  height: calc(100vh - 120px) !important; /* Full height minus controls */
+  max-height: 100vh !important;
+  min-height: 400px;
 }
 
 .str-video__speaker-layout__spotlight video {
@@ -79,10 +80,13 @@ body::before {
   object-fit: contain;
 }
 
-/* Participant bar responsiveness */
+/* Participant bar responsiveness - Top Aligned */
 .str-video__speaker-layout__participants-bar {
-  max-height: calc(100vh - 160px);
+  height: calc(100vh - 120px) !important;
+  max-height: 100vh !important;
   overflow-y: auto;
+  justify-content: flex-start !important; /* Top align */
+  gap: 10px;
 }
 
 .str-video__participant-view {

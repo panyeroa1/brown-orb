@@ -240,3 +240,51 @@ How it was tested:
 Test result:
 - PASS
 
+Task ID: T-0017
+Title: Full Screen Host & Top-Aligned Sidebar
+Status: DONE
+Owner: Miles
+Related repo or service: Orbit
+Branch: main
+Created: 2026-01-04 00:55
+Last updated: 2026-01-04 01:05
+
+START LOG (fill this before you start coding)
+
+Timestamp: 2026-01-04 00:55
+Current behavior or state:
+- Host video has padding/margins preventing full expansion.
+- Sidebar participants are not strictly top-aligned (or default flex implementation).
+
+Plan and scope for this task:
+- Update `globals.css` to force host spotlight to `100vh - controls_height`.
+- Apply `justify-content: flex-start` to sidebar to stack videos at the top.
+
+Files or modules expected to change:
+- app/globals.css
+
+Risks or things to watch out for:
+- Overlapping the control bar.
+
+WORK CHECKLIST
+
+- [x] Update CSS in `globals.css`
+- [x] Verify build
+
+END LOG (fill this after you finish coding and testing)
+
+Timestamp: 2026-01-04 01:05
+Summary of what actually changed:
+- Forced `.str-video__speaker-layout__spotlight` to consume full available height (`calc(100vh - 120px)`) and width.
+- Applied `justify-content: flex-start` to `.str-video__speaker-layout__participants-bar` to ensure top alignment.
+
+Files actually modified:
+- app/globals.css
+
+How it was tested:
+- npm run build
+
+Test result:
+- PASS
+
+
