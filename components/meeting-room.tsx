@@ -44,7 +44,6 @@ import { useDeepgramSTT } from "@/hooks/use-deepgram-stt";
 import { EndCallButton } from "./end-call-button";
 import { Loader } from "./loader";
 import { TranscriptionOverlay } from "./transcription-overlay";
-import { TranscriptionOverlay } from "./transcription-overlay";
 import { TTSProvider, useTTS } from "./tts-provider";
 
 type CallLayoutType = "grid" | "speaker-left" | "speaker-right" | "gallery";

@@ -42,6 +42,16 @@ export function useTTS() {
   return context;
 }
 
+const getErrorMessage = (error: any): string => {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "string") return error;
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return "Unknown error";
+  }
+};
+
 export function TTSProvider({ children, initialUserId, targetLanguage, meetingId }: { children: React.ReactNode; initialUserId: string; targetLanguage: string; meetingId: string }) {
   const call = useCall();
   const [targetUserId, setTargetUserId] = useState(initialUserId);
