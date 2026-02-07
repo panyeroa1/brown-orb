@@ -509,3 +509,63 @@ WORK CHECKLIST
 
 END LOG (fill this after you finish coding and testing)
 
+
+------------------------------------------------------------
+
+Task ID: T-0025
+Title: Refactor UI to Zoom Style
+Status: IN-PROGRESS
+Owner: Miles
+Related repo or service: brown-orb
+Branch: main
+Created: 2026-02-07 15:52
+Last updated: 2026-02-07 15:52
+
+START LOG
+
+Timestamp: 2026-02-07 15:52
+Current behavior or state:
+- Footer contains translation-specific controls (Target Language, STT Provider).
+- Icons and layout are custom and don't match standard meeting software (Zoom).
+
+Plan and scope for this task:
+- Simplify footer to match Zoom's core layout.
+- Remove translator settings and dropdowns.
+- Add Participants, Chat (placeholder), Share Screen, Recording, and Reactions buttons.
+- Ensure "Eburon" branding is maintained.
+
+Files or modules expected to change:
+- components/meeting-room.tsx
+
+Risks or things to watch out for:
+- Overcrowding the footer.
+- Breaking existing SDK functionality for AV toggles.
+
+WORK CHECKLIST
+
+- [x] Simplified footer icons implemented
+- [x] Translator UI removed
+- [x] Participants sidebar integrated
+- [x] Branding verified (Eburon only)
+- [x] Build and basic functionality verified
+
+END LOG
+
+Timestamp: 2026-02-07 16:15
+Summary of what actually changed:
+- Refactored `MeetingRoom` footer to a Zoom-style 3-group layout (A/V, Main Controls, Utility).
+- Removed all translator settings and STT provider selection UI.
+- Integrated `CallParticipantsList` for a togglable sidebar.
+
+Files actually modified:
+- components/meeting-room.tsx
+
+How it was tested:
+- npm run build (Status: PASS)
+- Manual verification of component grouping and toggle functionality.
+
+Test result:
+- PASS
+
+Known limitations or follow-up tasks:
+- Re-adding translation features will require UI re-integration if needed later.
