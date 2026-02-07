@@ -354,13 +354,7 @@ const MeetingRoomContent = ({
           <CallLayout />
         </div>
 
-        <div
-          className={cn("ml-2 hidden h-full", {
-            "show-block": showParticipants,
-          })}
-        >
-          <CallParticipantsList onClose={() => setShowParticipants(false)} />
-        </div>
+
       </div>
 
       <TranscriptionOverlay
@@ -375,117 +369,101 @@ const MeetingRoomContent = ({
       <div className="fixed bottom-0 left-0 right-0 z-50 flex w-full flex-wrap items-center justify-center gap-3 border-t border-white/10 bg-black/80 px-4 py-4 backdrop-blur-md">
 
         {/* 1. Speaker / Output Settings (Target Language + Mute Original) */}
-        <div className="flex items-center">
-          <button
-            onClick={() => setMuteOriginalAudio(!muteOriginalAudio)}
-            title={muteOriginalAudio ? "Unmute Original Audio" : "Mute Original Audio"}
+        <DropdownMenu>
+          <DropdownMenuTrigger
             className={cn(
               controlButtonClasses,
-              "relative rounded-r-none border-r-0",
-              muteOriginalAudio ? "bg-red-500/20 text-red-400 border-red-500/50" : "hover:bg-white/10"
+              "cursor-pointer",
+              muteOriginalAudio ? "bg-red-500/20 text-red-400 border-red-500/50" : "hover:bg-white/10",
+              translationLanguage !== "off" && !muteOriginalAudio && "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
             )}
+            title="Speaker Settings (Language & Mute)"
           >
             {muteOriginalAudio ? <VolumeX size={20} /> : <Volume2 size={20} />}
-          </button>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              className={cn(
-                controlButtonClasses,
-                "w-auto gap-1 rounded-l-none px-2 cursor-pointer",
-                translationLanguage !== "off" && "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
-              )}
-              title="Target Language (TTS)"
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="border-white/10 bg-black/90 text-white max-h-[300px] overflow-y-auto w-56">
+            <DropdownMenuItem
+              className="cursor-pointer"
+              onClick={() => setMuteOriginalAudio(!muteOriginalAudio)}
             >
-              <span className="text-[10px] font-bold uppercase">
-                {translationLanguage === "off" ? "OFF" : translationLanguage}
-              </span>
-              <ChevronDown size={12} />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="border-white/10 bg-black/90 text-white max-h-[300px] overflow-y-auto w-48">
-              <DropdownMenuItem
-                className="cursor-pointer"
-                onClick={() => setMuteOriginalAudio(!muteOriginalAudio)}
-              >
-                <div className="flex w-full items-center justify-between">
-                  <span>Mute Original Audio</span>
-                  {muteOriginalAudio && <Check size={14} className="text-emerald-400" />}
-                </div>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator className="border-white/10" />
-              <div className="px-2 py-1.5 text-xs font-semibold text-white/50">Target Language (TTS)</div>
-              <DropdownMenuItem
-                className={cn("cursor-pointer", translationLanguage === "off" && "bg-white/10 text-emerald-400")}
-                onClick={() => setTranslationLanguage("off")}
-              >
+              <div className="flex w-full items-center justify-between">
+                <span>Mute Original Audio</span>
+                {muteOriginalAudio && <Check size={14} className="text-red-400" />}
+              </div>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator className="border-white/10" />
+
+            <div className="px-2 py-1.5 text-xs font-semibold text-white/50">Target Language (TTS)</div>
+            <DropdownMenuItem
+              className={cn("cursor-pointer", translationLanguage === "off" && "bg-white/10 text-emerald-400")}
+              onClick={() => {
+                setTranslationLanguage("off");
+                setIsTranslationEnabled(false);
+              }}
+            >
+              <div className="flex w-full items-center justify-between">
                 <span>No Translation</span>
                 {translationLanguage === "off" && <Check size={14} />}
-              </DropdownMenuItem>
+              </div>
+            </DropdownMenuItem>
 
-              {TARGET_LANGUAGES.map((lang) => (
-                <DropdownMenuItem
-                  key={lang.value}
-                  className={cn("cursor-pointer", translationLanguage === lang.value && "bg-white/10 text-emerald-400")}
-                  onClick={() => {
-                    setTranslationLanguage(lang.value);
-                    if (lang.value !== "off") setIsTranslationEnabled(true);
-                  }}
-                >
-                  <div className="flex w-full items-center justify-between">
-                    <span>{lang.label}</span>
-                    {translationLanguage === lang.value && <Check size={14} />}
-                  </div>
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+            {TARGET_LANGUAGES.map((lang) => (
+              <DropdownMenuItem
+                key={lang.value}
+                className={cn("cursor-pointer", translationLanguage === lang.value && "bg-white/10 text-emerald-400")}
+                onClick={() => {
+                  setTranslationLanguage(lang.value);
+                  if (lang.value !== "off") setIsTranslationEnabled(true);
+                }}
+              >
+                <div className="flex w-full items-center justify-between">
+                  <span>{lang.label}</span>
+                  {translationLanguage === lang.value && <Check size={14} />}
+                </div>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         {/* 2. Mic / Input Settings (Source Language) */}
-        <div className="flex items-center">
-          <button
-            onClick={() => microphone.toggle()}
-            title={isMute ? "Unmute Microphone" : "Mute Microphone"}
+        <DropdownMenu>
+          <DropdownMenuTrigger
             className={cn(
               controlButtonClasses,
-              "relative rounded-r-none border-r-0",
+              "cursor-pointer",
               !isMute ? "text-emerald-400 border-emerald-500/30 bg-emerald-500/10" : "text-red-400 border-red-500/30 bg-red-500/10"
             )}
+            title="Mic Settings (Language & Mute)"
           >
             {isMute ? <MicOff size={20} /> : <Mic size={20} />}
-          </button>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              className={cn(
-                controlButtonClasses,
-                "w-auto gap-1 rounded-l-none px-2",
-                !isMute ? "text-emerald-400 border-emerald-500/30 bg-emerald-500/10" : "text-red-400 border-red-500/30 bg-red-500/10"
-              )}
-              title="Select Source Language"
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="border-white/10 bg-black/90 text-white max-h-[300px] overflow-y-auto w-56">
+            <DropdownMenuItem
+              className="cursor-pointer"
+              onClick={() => microphone.toggle()}
             >
-              <span className="text-[10px] font-medium uppercase">
-                {sourceLanguage}
-              </span>
-              <ChevronDown size={12} />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="border-white/10 bg-black/90 text-white max-h-[300px] overflow-y-auto w-48">
-              <div className="px-2 py-1.5 text-xs font-semibold text-white/50">Speaking Language</div>
-              {SPEAKER_LANGUAGES.map((lang) => (
-                <DropdownMenuItem
-                  key={lang.value}
-                  className={cn("cursor-pointer", sourceLanguage === lang.value && "bg-white/10 text-emerald-400")}
-                  onClick={() => setSourceLanguage(lang.value)}
-                >
-                  <div className="flex w-full items-center justify-between">
-                    <span>{lang.label}</span>
-                    {sourceLanguage === lang.value && <Check size={14} />}
-                  </div>
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+              <div className="flex w-full items-center justify-between">
+                <span>{isMute ? "Unmute Microphone" : "Mute Microphone"}</span>
+                {isMute && <Check size={14} className="text-red-400" />}
+              </div>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator className="border-white/10" />
+
+            <div className="px-2 py-1.5 text-xs font-semibold text-white/50">Speaking Language</div>
+            {SPEAKER_LANGUAGES.map((lang) => (
+              <DropdownMenuItem
+                key={lang.value}
+                className={cn("cursor-pointer", sourceLanguage === lang.value && "bg-white/10 text-emerald-400")}
+                onClick={() => setSourceLanguage(lang.value)}
+              >
+                <div className="flex w-full items-center justify-between">
+                  <span>{lang.label}</span>
+                  {sourceLanguage === lang.value && <Check size={14} />}
+                </div>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         {/* 4. Video Toggle */}
         <button
@@ -508,17 +486,7 @@ const MeetingRoomContent = ({
         <div className="mx-2 h-8 w-px bg-white/10" />
 
         {/* 6. Invite Button */}
-        <button
-          onClick={() => {
-            const link = `${window.location.origin}/meeting/${call?.id}`;
-            navigator.clipboard.writeText(link);
-            toast({ title: "Invite link copied!" });
-          }}
-          title="Invite Someone"
-          className={cn(controlButtonClasses, "hover:text-emerald-400 hover:border-emerald-500/50")}
-        >
-          <UserPlus size={20} />
-        </button>
+
 
         {/* 7. Layout Selector */}
         <DropdownMenu>
@@ -626,16 +594,7 @@ const MeetingRoomContent = ({
         <CallStatsButton />
 
         {/* 9. Participants Toggle */}
-        <button
-          onClick={() =>
-            setShowParticipants((prev: boolean) => !prev)
-          }
-          title="Show participants"
-        >
-          <div className={cn(controlButtonClasses, "cursor-pointer")}>
-            <Users size={20} className="text-white" />
-          </div>
-        </button>
+
 
         {/* 10. End Call */}
         <EndCallButton />

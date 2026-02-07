@@ -239,6 +239,7 @@ export function TTSProvider({ children, initialUserId, targetLanguage, meetingId
       isMounted.current = false;
       if (call) call.off("custom", handleCustomEvent);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetUserId, hasUserInteracted, selectedSinkId, targetLanguage, meetingId, call]);
 
   const enableAudio = () => {
