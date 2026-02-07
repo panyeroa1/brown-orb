@@ -569,3 +569,67 @@ Test result:
 
 Known limitations or follow-up tasks:
 - Re-adding translation features will require UI re-integration if needed later.
+
+------------------------------------------------------------
+
+Task ID: T-0026
+Title: Functional Device Selection and Translation controls
+Status: DONE
+Owner: Miles
+Related repo or service: brown-orb
+Branch: main
+Created: 2026-02-07 17:10
+Last updated: 2026-02-07 17:15
+
+START LOG
+
+Timestamp: 2026-02-07 17:10
+Current behavior or state:
+- Footer icons are static placeholders.
+- Translation UI was removed previously for simplification.
+- Device selection requires navigating away.
+
+Plan and scope for this task:
+- Populate Mic/Camera dropdowns with real hardware devices.
+- Implement switching logic using Stream SDK states.
+- Add a new Languages icon for translation control.
+- Re-integrate source/target language selection.
+
+Files or modules expected to change:
+- components/meeting-room.tsx
+
+Risks or things to watch out for:
+- Device permissions handling.
+- Syncing global translation state with the new UI.
+
+WORK CHECKLIST
+
+- [x] Mic device selection functional
+- [x] Camera device selection functional
+- [x] Languages icon added to footer
+- [x] Source/Target language selection functional
+- [x] Translation toggle integrated
+- [x] Build and basic functionality verified
+
+END LOG
+
+Timestamp: 2026-02-07 17:15
+Summary of what actually changed:
+- Implemented real-time hardware device selection for microphones and cameras directly within the footer dropdowns.
+- Re-integrated translation controls via a dedicated "Languages" icon.
+- Added support for selecting source (speaking) and target (TTS) languages.
+- Implemented a master toggle for enabling/disabling translation playback.
+- Fixed JSX parsing errors in `meeting-room.tsx` encountered during implementation.
+
+Files actually modified:
+- components/meeting-room.tsx
+
+How it was tested:
+- npm run build (Status: PASS)
+- Manual verification of control logic and SDK hook integration.
+
+Test result:
+- PASS
+
+Known limitations or follow-up tasks:
+- Ensure Deepgram STT is correctly synchronized with the selected source language if needed (currently defaults to 'en').

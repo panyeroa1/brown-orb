@@ -22,12 +22,15 @@ import {
   VideoOff,
   ChevronDown,
   Copy,
+  Languages,
+  Check,
 } from "lucide-react";
 import { signInAnonymously } from "@/lib/supabase";
 import { useUser } from "@clerk/nextjs";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import { useToast } from "@/components/ui/use-toast";
+import { SPEAKER_LANGUAGES, TARGET_LANGUAGES } from "@/constants/languages";
 
 import {
   DropdownMenu,
@@ -63,6 +66,8 @@ export const MeetingRoom = () => {
   const [layout, setLayout] = useState<CallLayoutType>("speaker-left");
   const [sbUserId, setSbUserId] = useState<string | null>(null);
   const [muteOriginalAudio, setMuteOriginalAudio] = useState(false);
+  const [translationLanguage, setTranslationLanguage] = useState<string>("off");
+  const [sourceLanguage, setSourceLanguage] = useState<string>("en");
 
   // Effect to mute/unmute all remote participant audio elements
   useEffect(() => {
@@ -191,24 +196,12 @@ export const MeetingRoom = () => {
 
   const isPersonalRoom = !!searchParams.get("personal");
 
-  const CallLayout = () => {
-    switch (layout) {
-      case "grid":
-      case "gallery":
-        return <PaginatedGridLayout />;
-      case "speaker-right":
-        return <SpeakerLayout participantsBarPosition="left" />;
-      default:
-        return <SpeakerLayout participantsBarPosition="right" />;
-    }
-  };
-
   if (callingState !== CallingState.JOINED) return <Loader />;
 
   const effectiveUserId = user?.id || sbUserId || "";
 
   return (
-    <TTSProvider initialUserId={effectiveUserId} targetLanguage="off" meetingId={call?.id || ""}>
+    <TTSProvider initialUserId={effectiveUserId} targetLanguage={translationLanguage} meetingId={call?.id || ""}>
       <MeetingRoomContent
         effectiveUserId={effectiveUserId}
         layout={layout}
@@ -216,8 +209,10 @@ export const MeetingRoom = () => {
         showParticipants={showParticipants}
         setShowParticipants={setShowParticipants}
         customTranscript={customTranscript}
-        muteOriginalAudio={muteOriginalAudio}
-        setMuteOriginalAudio={setMuteOriginalAudio}
+        translationLanguage={translationLanguage}
+        setTranslationLanguage={setTranslationLanguage}
+        sourceLanguage={sourceLanguage}
+        setSourceLanguage={setSourceLanguage}
       />
     </TTSProvider>
   );
@@ -231,13 +226,17 @@ const MeetingRoomContent = ({
   showParticipants,
   setShowParticipants,
   customTranscript,
+  translationLanguage,
+  setTranslationLanguage,
+  sourceLanguage,
+  setSourceLanguage,
 }: any) => {
   const call = useCall();
   const { user } = useUser();
   const { toast } = useToast();
   const { useMicrophoneState, useCameraState, useScreenShareState } = useCallStateHooks();
-  const { isMute, microphone } = useMicrophoneState();
-  const { isEnabled: isVideoEnabled, camera } = useCameraState();
+  const { isMute, microphone, devices: micDevices, selectedDevice: selectedMicId } = useMicrophoneState();
+  const { isEnabled: isVideoEnabled, camera, devices: camDevices, selectedDevice: selectedCamId } = useCameraState();
   const { isEnabled: isScreenSharing, screenShare } = useScreenShareState();
 
   const { isTranslationEnabled, setIsTranslationEnabled } = useTTS();
@@ -272,14 +271,13 @@ const MeetingRoomContent = ({
         sttProvider="deepgram"
         customTranscript={customTranscript}
         userId={user?.id}
-        targetLanguage="off"
+        targetLanguage={translationLanguage}
         meetingId={call?.id || ""}
         sbUserId={effectiveUserId}
       />
 
       <div className="fixed bottom-0 left-0 right-0 z-50 flex h-20 w-full items-center justify-between bg-[#1A1A1A] px-4">
-
-        {/* Left Section: Audio & Video */}
+        {/* Left Section: Audio, Video & Translation */}
         <div className="flex items-center gap-1 sm:gap-4">
           <div className="flex items-center">
             <button
@@ -295,10 +293,21 @@ const MeetingRoomContent = ({
               <DropdownMenuTrigger className="h-[52px] w-4 hover:bg-white/10 flex items-center justify-center rounded-r-md">
                 <ChevronDown size={14} className="text-white/50" />
               </DropdownMenuTrigger>
-              <DropdownMenuContent className="border-white/10 bg-[#1A1A1A] text-white/90">
-                <DropdownMenuItem className="cursor-pointer hover:bg-white/10">
-                  Select a Microphone...
-                </DropdownMenuItem>
+              <DropdownMenuContent className="border-white/10 bg-[#1A1A1A] text-white/90 max-h-[300px] overflow-y-auto w-64">
+                <div className="px-2 py-1.5 text-xs font-semibold text-white/50">Microphone</div>
+                {micDevices?.map((device) => (
+                  <DropdownMenuItem
+                    key={device.deviceId}
+                    className={cn("cursor-pointer hover:bg-white/10", selectedMicId === device.deviceId && "bg-white/5 text-[#2D8CFF]")}
+                    onClick={() => microphone.select(device.deviceId)}
+                  >
+                    <div className="flex w-full items-center justify-between">
+                      <span className="truncate pr-2">{device.label || `Microphone ${device.deviceId.slice(0, 5)}`}</span>
+                      {selectedMicId === device.deviceId && <Check size={14} />}
+                    </div>
+                  </DropdownMenuItem>
+                ))}
+
                 <DropdownMenuSeparator className="border-white/10" />
                 <DropdownMenuItem
                   className="cursor-pointer hover:bg-white/10 text-xs text-white/50"
@@ -324,10 +333,21 @@ const MeetingRoomContent = ({
               <DropdownMenuTrigger className="h-[52px] w-4 hover:bg-white/10 flex items-center justify-center rounded-r-md">
                 <ChevronDown size={14} className="text-white/50" />
               </DropdownMenuTrigger>
-              <DropdownMenuContent className="border-white/10 bg-[#1A1A1A] text-white/90">
-                <DropdownMenuItem className="cursor-pointer hover:bg-white/10">
-                  Select a Camera...
-                </DropdownMenuItem>
+              <DropdownMenuContent className="border-white/10 bg-[#1A1A1A] text-white/90 max-h-[300px] overflow-y-auto w-64">
+                <div className="px-2 py-1.5 text-xs font-semibold text-white/50">Camera</div>
+                {camDevices?.map((device) => (
+                  <DropdownMenuItem
+                    key={device.deviceId}
+                    className={cn("cursor-pointer hover:bg-white/10", selectedCamId === device.deviceId && "bg-white/5 text-[#2D8CFF]")}
+                    onClick={() => camera.select(device.deviceId)}
+                  >
+                    <div className="flex w-full items-center justify-between">
+                      <span className="truncate pr-2">{device.label || `Camera ${device.deviceId.slice(0, 5)}`}</span>
+                      {selectedCamId === device.deviceId && <Check size={14} />}
+                    </div>
+                  </DropdownMenuItem>
+                ))}
+
                 <DropdownMenuSeparator className="border-white/10" />
                 <DropdownMenuItem
                   className="cursor-pointer hover:bg-white/10 text-xs text-white/50"
@@ -335,6 +355,89 @@ const MeetingRoomContent = ({
                 >
                   Video Settings...
                 </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+
+          <div className="flex items-center">
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                className={cn(
+                  controlButtonClasses,
+                  isTranslationEnabled && activeControlButtonClasses,
+                  "px-2"
+                )}
+              >
+                <Languages size={22} strokeWidth={1.5} />
+                <span className="text-[11px] font-medium leading-none">Translation</span>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="border-white/10 bg-[#1A1A1A] text-white/90 max-h-[400px] overflow-y-auto w-64 px-1">
+                <div className="px-2 py-2 text-xs font-bold text-[#2D8CFF] uppercase tracking-tighter">Translation Settings</div>
+
+                <DropdownMenuItem
+                  className="cursor-pointer hover:bg-white/10 mb-1 rounded-md py-2"
+                  onClick={() => setIsTranslationEnabled(!isTranslationEnabled)}
+                >
+                  <div className="flex w-full items-center justify-between font-medium">
+                    <span>Enable Translation</span>
+                    <div className={cn(
+                      "w-8 h-4 rounded-full transition-colors relative",
+                      isTranslationEnabled ? "bg-[#2D8CFF]" : "bg-white/20"
+                    )}>
+                      <div className={cn(
+                        "absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all",
+                        isTranslationEnabled ? "right-0.5" : "left-0.5"
+                      )} />
+                    </div>
+                  </div>
+                </DropdownMenuItem>
+
+                <DropdownMenuSeparator className="bg-white/5 mx-2" />
+
+                <div className="px-2 pt-3 pb-1 text-[10px] font-bold text-white/40 uppercase tracking-widest">Speaking Language</div>
+                {SPEAKER_LANGUAGES.map((lang) => (
+                  <DropdownMenuItem
+                    key={lang.value}
+                    className={cn("cursor-pointer hover:bg-white/10 rounded-md py-1.5", sourceLanguage === lang.value && "bg-[#2D8CFF]/10 text-[#2D8CFF]")}
+                    onClick={() => setSourceLanguage(lang.value)}
+                  >
+                    <div className="flex w-full items-center justify-between">
+                      <span className="text-sm">{lang.label}</span>
+                      {sourceLanguage === lang.value && <Check size={14} />}
+                    </div>
+                  </DropdownMenuItem>
+                ))}
+
+                <DropdownMenuSeparator className="bg-white/5 mx-2 my-2" />
+
+                <div className="px-2 pt-1 pb-1 text-[10px] font-bold text-white/40 uppercase tracking-widest">Target Language (TTS)</div>
+                <DropdownMenuItem
+                  className={cn("cursor-pointer hover:bg-white/10 rounded-md py-1.5", translationLanguage === "off" && "bg-white/10 text-white/60")}
+                  onClick={() => {
+                    setTranslationLanguage("off");
+                    setIsTranslationEnabled(false);
+                  }}
+                >
+                  <div className="flex w-full items-center justify-between">
+                    <span className="text-sm italic text-white/60">Audio Only (No Translation)</span>
+                    {translationLanguage === "off" && <Check size={14} />}
+                  </div>
+                </DropdownMenuItem>
+                {TARGET_LANGUAGES.map((lang) => (
+                  <DropdownMenuItem
+                    key={lang.value}
+                    className={cn("cursor-pointer hover:bg-white/10 rounded-md py-1.5", translationLanguage === lang.value && "bg-[#2D8CFF]/10 text-[#2D8CFF]")}
+                    onClick={() => {
+                      setTranslationLanguage(lang.value);
+                      if (lang.value !== "off") setIsTranslationEnabled(true);
+                    }}
+                  >
+                    <div className="flex w-full items-center justify-between">
+                      <span className="text-sm">{lang.label}</span>
+                      {translationLanguage === lang.value && <Check size={14} />}
+                    </div>
+                  </DropdownMenuItem>
+                ))}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -384,7 +487,10 @@ const MeetingRoomContent = ({
               <DropdownMenuItem className="cursor-pointer hover:bg-white/10" onClick={() => setLayout("grid")}>
                 Grid
               </DropdownMenuItem>
-              <DropdownMenuItem className="cursor-pointer hover:bg-white/10" onClick={() => setLayout("speaker-left")}>
+              <DropdownMenuItem
+                className="cursor-pointer hover:bg-white/10"
+                onClick={() => setLayout("speaker-left")}
+              >
                 Speaker View
               </DropdownMenuItem>
               <DropdownMenuItem className="cursor-pointer hover:bg-white/10" onClick={() => setLayout("gallery")}>
@@ -394,7 +500,7 @@ const MeetingRoomContent = ({
           </DropdownMenu>
         </div>
 
-        {/* Right Section: End Meeting */}
+        {/* Right Section: Invite & Meta */}
         <div className="flex items-center gap-4">
           <button
             onClick={() => {
