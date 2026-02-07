@@ -19,6 +19,8 @@ interface TTSContextType {
   setTargetUserId: (id: string) => void;
   isMuted: boolean;
   setIsMuted: (muted: boolean) => void;
+  isTranslationEnabled: boolean;
+  setIsTranslationEnabled: (enabled: boolean) => void;
   status: string;
   statusType: "info" | "error";
   nowPlaying: string | null;
@@ -44,11 +46,12 @@ export function TTSProvider({ children, initialUserId, targetLanguage, meetingId
   const call = useCall();
   const [targetUserId, setTargetUserId] = useState(initialUserId);
   const [isMuted, setIsMuted] = useState(false);
+  const [isTranslationEnabled, setIsTranslationEnabled] = useState(false);
   const [status, setStatus] = useState("Waiting for interaction...");
   const [statusType, setStatusType] = useState<"info" | "error">("info");
   const [nowPlaying, setNowPlaying] = useState<string | null>(null);
   const [hasUserInteracted, setHasUserInteracted] = useState(false);
-  
+
   // Audio Output Routing
   const [audioDevices, setAudioDevices] = useState<{ label: string; value: string }[]>([]);
   const [selectedSinkId, setSelectedSinkId] = useState<string>("");
@@ -111,10 +114,10 @@ export function TTSProvider({ children, initialUserId, targetLanguage, meetingId
       });
       if (!response.ok) {
         try {
-            const err = await response.json();
-            throw new Error(`Supabase Error: ${err.message || JSON.stringify(err)}`);
+          const err = await response.json();
+          throw new Error(`Supabase Error: ${err.message || JSON.stringify(err)}`);
         } catch (e: any) {
-            throw new Error(`Supabase Error: ${response.statusText}`);
+          throw new Error(`Supabase Error: ${response.statusText}`);
         }
       }
       return response.json();
@@ -144,24 +147,24 @@ export function TTSProvider({ children, initialUserId, targetLanguage, meetingId
 
       const audioBlob = await response.blob();
       console.log(`[TTS] Received Audio Blob: ${audioBlob.size} bytes, Type: ${audioBlob.type}`);
-      
+
       if (audioBlob.size < 100) {
-           throw new Error("Received empty or invalid audio blob from TTS provider");
+        throw new Error("Received empty or invalid audio blob from TTS provider");
       }
 
       const audioUrl = URL.createObjectURL(audioBlob);
       const audioPlayer = new Audio(audioUrl);
-      
+
       // Safety: Configure audio for broader compatibility
       audioPlayer.preload = "auto";
-      
+
       // Apply Output Device Routing
       if (selectedSinkId && (audioPlayer as any).setSinkId) {
-          try {
-            await (audioPlayer as any).setSinkId(selectedSinkId);
-          } catch (e) {
-            console.warn("Failed to set audio sink ID:", e);
-          }
+        try {
+          await (audioPlayer as any).setSinkId(selectedSinkId);
+        } catch (e) {
+          console.warn("Failed to set audio sink ID:", e);
+        }
       }
 
       await new Promise<void>((resolve, reject) => {
@@ -175,20 +178,20 @@ export function TTSProvider({ children, initialUserId, targetLanguage, meetingId
           // extraction detailed media error
           let msg = "Audio Playback Failed";
           if (err) {
-              switch (err.code) {
-                  case err.MEDIA_ERR_ABORTED: msg = "Playback Aborted"; break;
-                  case err.MEDIA_ERR_NETWORK: msg = "Network Error"; break;
-                  case err.MEDIA_ERR_DECODE: msg = "Decoding Error (Bad Format)"; break;
-                  case err.MEDIA_ERR_SRC_NOT_SUPPORTED: msg = "Source Not Supported"; break;
-                  default: msg = `Unknown Media Error: ${err.message}`;
-              }
+            switch (err.code) {
+              case err.MEDIA_ERR_ABORTED: msg = "Playback Aborted"; break;
+              case err.MEDIA_ERR_NETWORK: msg = "Network Error"; break;
+              case err.MEDIA_ERR_DECODE: msg = "Decoding Error (Bad Format)"; break;
+              case err.MEDIA_ERR_SRC_NOT_SUPPORTED: msg = "Source Not Supported"; break;
+              default: msg = `Unknown Media Error: ${err.message}`;
+            }
           }
           reject(new Error(msg));
         };
         const playPromise = audioPlayer.play();
         if (playPromise !== undefined) {
           playPromise.catch((error) => {
-             reject(error);
+            reject(error);
           });
         }
       });
@@ -221,7 +224,7 @@ export function TTSProvider({ children, initialUserId, targetLanguage, meetingId
           if (error.name === "NotAllowedError") {
             setStatus("Browser blocked audio. Click 'Enable Audio'.");
             setStatusType("error");
-            setHasUserInteracted(false); 
+            setHasUserInteracted(false);
             playbackQueue.current.unshift(sentence);
           } else {
             console.error("Playback Error:", error);
@@ -237,52 +240,51 @@ export function TTSProvider({ children, initialUserId, targetLanguage, meetingId
     };
 
     const handleCustomEvent = async (event: any) => {
-        if (event.type !== "transcription.new") return;
-        
-        const data = event.custom; // payload is in .custom property
-        if (!data || !data.text) return;
-        
-        // Filter by speaker
-        if (data.speakerId !== targetUserId) return;
+      if (event.type !== "transcription.new") return;
 
-        console.log(`[TTS] Received event:`, data);
+      const data = event.custom; // payload is in .custom property
+      if (!data || !data.text) return;
 
-        // Process Text
-        const text = data.text;
-        
-        // Translate
-        if (targetLanguage && targetLanguage !== "off") {
-            try {
-                const translated = await getTranslation(text, targetLanguage);
-                if (translated) {
-                    playbackQueue.current.push(translated);
-                    setStatus(`Received & Translated: "${text.substring(0, 10)}..."`);
-                    setStatusType("info");
+      // Filter by speaker
+      if (data.speakerId !== targetUserId) return;
 
-                    // Save translated text per user request
-                    saveTranslation({
-                        user_id: targetUserId, // The speaker
-                        meeting_id: meetingId,
-                        source_lang: "auto",
-                        target_lang: targetLanguage,
-                        original_text: text,
-                        translated_text: translated
-                    }).catch(e => console.warn("Failed to save translation:", e));
-                }
-            } catch (err) {
-                console.error("Translation error:", err);
-            }
-        } else {
-             // If translation off, maybe play original? Or skip.
-             // As per previous logic, we skip or queue original if desired.
-             // For now, assume translation required.
+      console.log(`[TTS] Received event:`, data);
+
+      // Process Text
+      const text = data.text;
+
+      // Translate - ONLY if translation is enabled and a language is selected
+      if (isTranslationEnabled && targetLanguage && targetLanguage !== "off") {
+        try {
+          const translated = await getTranslation(text, targetLanguage);
+          if (translated) {
+            playbackQueue.current.push(translated);
+            setStatus(`Received & Translated: "${text.substring(0, 10)}..."`);
+            setStatusType("info");
+
+            // Save translated text per user request
+            saveTranslation({
+              user_id: targetUserId, // The speaker
+              meeting_id: meetingId,
+              source_lang: "auto",
+              target_lang: targetLanguage,
+              original_text: text,
+              translated_text: translated
+            }).catch(e => console.warn("Failed to save translation:", e));
+          }
+        } catch (err) {
+          console.error("Translation error:", err);
         }
+      } else {
+        // If translation off or disabled, we don't queue anything for playback
+        console.log(`[TTS] Translation skipped (Enabled: ${isTranslationEnabled}, Lang: ${targetLanguage})`);
+      }
     };
 
     // removed sentenceFinder polling
 
     if (call) {
-        call.on("custom", handleCustomEvent);
+      call.on("custom", handleCustomEvent);
     }
 
     const startFlow = async () => {
@@ -290,15 +292,15 @@ export function TTSProvider({ children, initialUserId, targetLanguage, meetingId
         setStatus("Waiting for User ID...");
         return;
       }
-      
+
       if (!hasUserInteracted) {
-         setStatus("Click 'Enable Audio' to start.");
-         return;
+        setStatus("Click 'Enable Audio' to start.");
+        return;
       }
 
       setStatus("Ready. Waiting for live speech...");
       // Optional: Fetch history once if needed, but we focus on live events now.
-      
+
       // Start Loops
       animationFrameId = requestAnimationFrame(playbackManager);
     };
@@ -316,7 +318,7 @@ export function TTSProvider({ children, initialUserId, targetLanguage, meetingId
 
   const enableAudio = () => {
     setHasUserInteracted(true);
-    new Audio().play().catch(() => {});
+    new Audio().play().catch(() => { });
   };
 
   const disableAudio = () => {
@@ -329,6 +331,8 @@ export function TTSProvider({ children, initialUserId, targetLanguage, meetingId
     setTargetUserId,
     isMuted,
     setIsMuted,
+    isTranslationEnabled,
+    setIsTranslationEnabled,
     status,
     statusType,
     nowPlaying,

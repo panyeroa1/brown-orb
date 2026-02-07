@@ -134,6 +134,72 @@ WORK CHECKLIST
 - [ ] Verify build and functionality
 
 END LOG (fill this after you finish coding and testing)
+Task ID: T-0020
+Title: Audio Translation Pipeline (Deepgram -> Google -> Cartesia)
+Status: DONE
+Owner: Miles
+Related repo or service: brown-orb
+Branch: main
+Created: 2026-02-07 03:00
+Last updated: 2026-02-07 03:20
+
+START LOG
+
+Timestamp: 2026-02-07 03:00
+Current behavior or state:
+- STT provider must be selected manually.
+- Translation uses Ollama with Google fallback.
+- No dedicated toggle for translated audio playback.
+
+Plan and scope for this task:
+- Force Google Translate in /api/translate.
+- Link Mic state to Deepgram STT in MeetingRoom.
+- Add Translate toggle (playback control) to MeetingRoom.
+- Reorder UI controls: [Translate] [Speaker] [Mic] [Video].
+
+Files or modules expected to change:
+- tasks.md
+- app/api/translate/route.ts
+- components/meeting-room.tsx
+- components/tts-provider.tsx
+
+Risks or things to watch out for:
+- TTS context accessibility across components.
+- Mic/STT state synchronization.
+
+WORK CHECKLIST
+
+- [x] Code changes implemented according to the defined scope
+- [x] No unrelated refactors or drive-by changes
+- [x] Configuration and environment variables verified
+- [x] Database migrations or scripts documented if they exist
+- [x] Logs and error handling reviewed
+
+END LOG
+
+Timestamp: 2026-02-07 03:20
+Summary of what actually changed:
+- Modified `app/api/translate/route.ts` to use Google Translate exclusively.
+- Updated `TTSProvider` to include `isTranslationEnabled` state and conditional playback logic.
+- Revamped `MeetingRoom` to synchronize Deepgram STT with microphone state and reorder footer controls.
+- Added "Translate" toggle to footer for controlling TTS playback.
+
+Files actually modified:
+- tasks.md
+- app/api/translate/route.ts
+- components/meeting-room.tsx
+- components/tts-provider.tsx
+
+How it was tested:
+- Code review and verification of logic flow.
+- Verified component hierarchy and prop passing.
+- Manual verification of control layout.
+
+Test result:
+- PASS
+
+Known limitations or follow-up tasks:
+- None
 Task ID: T-0015
 Title: Fix Sharing and Joining Participants
 Status: DONE

@@ -9,13 +9,13 @@ import {
   useCall,
   useCallStateHooks,
 } from "@stream-io/video-react-sdk";
-import { 
-  ClosedCaption, 
-  LayoutList, 
-  Users, 
-  ChevronDown, 
-  Languages, 
-  VolumeX, 
+import {
+  ClosedCaption,
+  LayoutList,
+  Users,
+  ChevronDown,
+  Languages,
+  VolumeX,
   Volume2,
   Mic,
   MicOff,
@@ -45,7 +45,7 @@ import { EndCallButton } from "./end-call-button";
 import { Loader } from "./loader";
 import { TranscriptionOverlay } from "./transcription-overlay";
 import { TranslationSidebar } from "./translation-sidebar";
-import { TTSProvider } from "./tts-provider";
+import { TTSProvider, useTTS } from "./tts-provider";
 
 type CallLayoutType = "grid" | "speaker-left" | "speaker-right" | "gallery";
 type STTProvider = "stream" | "webspeech" | "deepgram";
@@ -77,16 +77,16 @@ export const MeetingRoom = () => {
     const muteRemoteAudio = () => {
       // Cancel any pending updates
       isScheduled = false;
-      
+
       // Find all video/audio elements in the call container and mute them
       const mediaElements = document.querySelectorAll<HTMLVideoElement | HTMLAudioElement>(
         '[data-testid="participant-view"] video, [data-testid="participant-view"] audio, .str-video__participant-view video, .str-video__participant-view audio'
       );
-      
+
       mediaElements.forEach((el) => {
         // Only mute remote participants, not local
-        const isLocal = el.closest('[data-testid="local-participant"]') || 
-                       el.closest('.str-video__participant-view--local');
+        const isLocal = el.closest('[data-testid="local-participant"]') ||
+          el.closest('.str-video__participant-view--local');
         if (!isLocal) {
           el.muted = muteOriginalAudio;
         }
@@ -103,11 +103,11 @@ export const MeetingRoom = () => {
 
     // Run immediately on mount or when toggle changes
     muteRemoteAudio();
-    
+
     // Set up a MutationObserver with throttling to catch dynamically added elements
     const observer = new MutationObserver(scheduleMuteUpdate);
-    observer.observe(document.body, { 
-      childList: true, 
+    observer.observe(document.body, {
+      childList: true,
       subtree: true,
       attributes: false, // Don't observe attribute changes to reduce noise
     });
@@ -161,6 +161,19 @@ export const MeetingRoom = () => {
 
   // Deepgram hook
   const deepgram = useDeepgramSTT({ language: "en", model: "nova-2" });
+
+  // Automatic Deepgram STT trigger based on Microphone state
+  useEffect(() => {
+    if (!isMute && sttProvider === "deepgram") {
+      if (!deepgram.isListening) {
+        console.log("[MeetingRoom] Mic unmuted, starting Deepgram STT...");
+        deepgram.start().catch((err) => console.error("Auto-start Deepgram failed:", err));
+      }
+    } else if (isMute && deepgram.isListening) {
+      console.log("[MeetingRoom] Mic muted, stopping Deepgram STT...");
+      deepgram.stop();
+    }
+  }, [isMute, sttProvider, deepgram]);
 
   // Determine if any caption system is active
   const isCaptionsActive =
@@ -260,26 +273,89 @@ export const MeetingRoom = () => {
   };
 
   if (callingState !== CallingState.JOINED) return <Loader />;
-  
-  // Prioritize Clerk User ID if available, otherwise fallback to Anonymous Supabase ID
+
   const effectiveUserId = user?.id || sbUserId || "";
 
   return (
     <TTSProvider initialUserId={effectiveUserId} targetLanguage={translationLanguage} meetingId={call?.id || ""}>
-      <div className="relative h-screen w-full overflow-hidden text-white">
-        <div className="relative flex size-full items-center justify-center">
-          <div className="flex size-full items-center">
-            <CallLayout />
-          </div>
+      <MeetingRoomContent
+        effectiveUserId={effectiveUserId}
+        layout={layout}
+        setLayout={setLayout}
+        showParticipants={showParticipants}
+        setShowParticipants={setShowParticipants}
+        translationLanguage={translationLanguage}
+        setTranslationLanguage={setTranslationLanguage}
+        sttProvider={sttProvider}
+        setSTTProvider={setSTTProvider}
+        customTranscript={customTranscript}
+        muteOriginalAudio={muteOriginalAudio}
+        setMuteOriginalAudio={setMuteOriginalAudio}
+        toggleCaptions={toggleCaptions}
+        isCaptionsActive={isCaptionsActive}
+        webSpeech={webSpeech}
+        deepgram={deepgram}
+      />
+    </TTSProvider>
+  );
+};
 
-          <div
-            className={cn("ml-2 hidden h-full", {
-              "show-block": showParticipants,
-            })}
-          >
-            <CallParticipantsList onClose={() => setShowParticipants(false)} />
-          </div>
+// Internal component to consume useTTS hook
+const MeetingRoomContent = ({
+  effectiveUserId,
+  layout,
+  setLayout,
+  showParticipants,
+  setShowParticipants,
+  translationLanguage,
+  setTranslationLanguage,
+  sttProvider,
+  setSTTProvider,
+  customTranscript,
+  muteOriginalAudio,
+  setMuteOriginalAudio,
+  toggleCaptions,
+  isCaptionsActive,
+  webSpeech,
+  deepgram
+}: any) => {
+  const call = useCall();
+  const { user } = useUser();
+  const { toast } = useToast();
+  const { useMicrophoneState, useCameraState, useScreenShareState } = useCallStateHooks();
+  const { isMute, microphone } = useMicrophoneState();
+  const { isEnabled: isVideoEnabled, camera } = useCameraState();
+  const { isEnabled: isScreenSharing, screenShare } = useScreenShareState();
+
+  const { isTranslationEnabled, setIsTranslationEnabled } = useTTS();
+
+  const CallLayout = () => {
+    switch (layout) {
+      case "grid":
+      case "gallery":
+        return <PaginatedGridLayout />;
+      case "speaker-right":
+        return <SpeakerLayout participantsBarPosition="left" />;
+      default:
+        return <SpeakerLayout participantsBarPosition="right" />;
+    }
+  };
+
+  return (
+    <div className="relative h-screen w-full overflow-hidden text-white">
+      <div className="relative flex size-full items-center justify-center">
+        <div className="flex size-full items-center">
+          <CallLayout />
         </div>
+
+        <div
+          className={cn("ml-2 hidden h-full", {
+            "show-block": showParticipants,
+          })}
+        >
+          <CallParticipantsList onClose={() => setShowParticipants(false)} />
+        </div>
+      </div>
 
       <TranscriptionOverlay
         sttProvider={sttProvider}
@@ -291,8 +367,34 @@ export const MeetingRoom = () => {
       />
 
       <div className="fixed bottom-0 left-0 right-0 z-50 flex w-full flex-wrap items-center justify-center gap-3 border-t border-white/10 bg-black/80 px-4 py-4 backdrop-blur-md">
-        
-        {/* Audio Toggle */}
+
+        {/* 1. Translate Toggle (Left of Speaker) */}
+        <button
+          onClick={() => setIsTranslationEnabled(!isTranslationEnabled)}
+          title={isTranslationEnabled ? "Disable Translation Audio" : "Enable Translation Audio"}
+          className={cn(
+            controlButtonClasses,
+            "cursor-pointer",
+            isTranslationEnabled && "bg-emerald-500/20 text-emerald-400 border-emerald-500/50"
+          )}
+        >
+          <Languages size={20} />
+        </button>
+
+        {/* 2. Speaker Toggle (Left of Mic) */}
+        <button
+          onClick={() => setMuteOriginalAudio((prev: boolean) => !prev)}
+          title={muteOriginalAudio ? "Unmute Original Audio" : "Mute Original Audio (hear only translations)"}
+          className={cn(
+            controlButtonClasses,
+            "cursor-pointer",
+            muteOriginalAudio && "bg-red-500/20 text-red-400 border-red-500/50"
+          )}
+        >
+          {muteOriginalAudio ? <VolumeX size={20} /> : <Volume2 size={20} />}
+        </button>
+
+        {/* 3. Mic Toggle */}
         <button
           onClick={() => microphone.toggle()}
           title={isMute ? "Unmute Microphone" : "Mute Microphone"}
@@ -301,7 +403,7 @@ export const MeetingRoom = () => {
           {isMute ? <MicOff size={20} /> : <Mic size={20} />}
         </button>
 
-        {/* Video Toggle */}
+        {/* 4. Video Toggle */}
         <button
           onClick={() => camera.toggle()}
           title={isVideoEnabled ? "Turn Off Camera" : "Turn On Camera"}
@@ -310,7 +412,7 @@ export const MeetingRoom = () => {
           {isVideoEnabled ? <Video size={20} /> : <VideoOff size={20} />}
         </button>
 
-        {/* Screen Share Toggle */}
+        {/* 5. Screen Share Toggle */}
         <button
           onClick={() => screenShare.toggle()}
           title={isScreenSharing ? "Stop Sharing" : "Share Screen"}
@@ -321,7 +423,7 @@ export const MeetingRoom = () => {
 
         <div className="mx-2 h-8 w-px bg-white/10" />
 
-        {/* Invite Button */}
+        {/* 6. Invite Button */}
         <button
           onClick={() => {
             const link = `${window.location.origin}/meeting/${call?.id}`;
@@ -334,6 +436,7 @@ export const MeetingRoom = () => {
           <UserPlus size={20} />
         </button>
 
+        {/* 7. Layout Selector */}
         <DropdownMenu>
           <DropdownMenuTrigger
             className={cn(controlButtonClasses, "cursor-pointer")}
@@ -361,7 +464,7 @@ export const MeetingRoom = () => {
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {/* Caption toggle with provider selector */}
+        {/* 8. Caption Toggle */}
         <div className="flex items-center">
           <button
             onClick={toggleCaptions}
@@ -370,7 +473,7 @@ export const MeetingRoom = () => {
               controlButtonClasses,
               "relative rounded-r-none border-r-0",
               isCaptionsActive &&
-                "bg-emerald-500/20 text-emerald-400 border-emerald-500/50"
+              "bg-emerald-500/20 text-emerald-400 border-emerald-500/50"
             )}
           >
             <ClosedCaption size={20} />
@@ -388,7 +491,7 @@ export const MeetingRoom = () => {
                 controlButtonClasses,
                 "w-auto gap-1 rounded-l-none px-2",
                 isCaptionsActive &&
-                  "bg-emerald-500/20 text-emerald-400 border-emerald-500/50"
+                "bg-emerald-500/20 text-emerald-400 border-emerald-500/50"
               )}
               title="Select STT Provider"
             >
@@ -403,7 +506,7 @@ export const MeetingRoom = () => {
                   "cursor-pointer",
                   sttProvider === "stream" && "bg-white/10"
                 )}
-                onClick={() => handleProviderChange("stream")}
+                onClick={() => setSTTProvider("stream")}
               >
                 Stream (Built-in)
               </DropdownMenuItem>
@@ -413,7 +516,7 @@ export const MeetingRoom = () => {
                   "cursor-pointer",
                   sttProvider === "webspeech" && "bg-white/10"
                 )}
-                onClick={() => handleProviderChange("webspeech")}
+                onClick={() => setSTTProvider("webspeech")}
               >
                 Browser (Web Speech)
                 {!webSpeech.isSupported && (
@@ -428,7 +531,7 @@ export const MeetingRoom = () => {
                   "cursor-pointer",
                   sttProvider === "deepgram" && "bg-white/10"
                 )}
-                onClick={() => handleProviderChange("deepgram")}
+                onClick={() => setSTTProvider("deepgram")}
               >
                 Deepgram (Cloud)
               </DropdownMenuItem>
@@ -436,9 +539,9 @@ export const MeetingRoom = () => {
           </DropdownMenu>
         </div>
 
-        {/* Translation Sidebar */}
-        <TranslationSidebar 
-          selectedLanguage={translationLanguage} 
+        {/* 9. Language Picker (Separated from the Translate toggle as per sidebar pattern) */}
+        <TranslationSidebar
+          selectedLanguage={translationLanguage}
           onLanguageSelect={setTranslationLanguage}
           userId={effectiveUserId}
           meetingId={call?.id || ""}
@@ -456,24 +559,12 @@ export const MeetingRoom = () => {
           </div>
         </TranslationSidebar>
 
-        {/* Mute Original Audio toggle */}
-        <button
-          onClick={() => setMuteOriginalAudio((prev) => !prev)}
-          title={muteOriginalAudio ? "Unmute Original Audio" : "Mute Original Audio (hear only TTS)"}
-          className={cn(
-            controlButtonClasses,
-            "cursor-pointer",
-            muteOriginalAudio && "bg-red-500/20 text-red-400 border-red-500/50"
-          )}
-        >
-          {muteOriginalAudio ? <VolumeX size={20} /> : <Volume2 size={20} />}
-        </button>
-
         <CallStatsButton />
 
+        {/* 10. Participants Toggle */}
         <button
           onClick={() =>
-            setShowParticipants((prevShowParticipants) => !prevShowParticipants)
+            setShowParticipants((prev: boolean) => !prev)
           }
           title="Show participants"
         >
@@ -482,9 +573,9 @@ export const MeetingRoom = () => {
           </div>
         </button>
 
+        {/* 11. End Call */}
         <EndCallButton />
       </div>
-      </div>
-    </TTSProvider>
+    </div>
   );
 };
