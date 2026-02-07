@@ -14,7 +14,6 @@ import {
   LayoutList,
   Users,
   ChevronDown,
-  Languages,
   VolumeX,
   Volume2,
   Mic,
@@ -22,13 +21,15 @@ import {
   Video,
   VideoOff,
   Monitor,
-  UserPlus
+  UserPlus,
+  Check
 } from "lucide-react";
 import { signInAnonymously } from "@/lib/supabase";
 import { useUser } from "@clerk/nextjs";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import { useToast } from "@/components/ui/use-toast";
+import { SPEAKER_LANGUAGES, TARGET_LANGUAGES } from "@/constants/languages";
 
 import {
   DropdownMenu,
@@ -373,58 +374,74 @@ const MeetingRoomContent = ({
 
       <div className="fixed bottom-0 left-0 right-0 z-50 flex w-full flex-wrap items-center justify-center gap-3 border-t border-white/10 bg-black/80 px-4 py-4 backdrop-blur-md">
 
-        {/* 1. Translate Dropdown (With Language Selection) */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
+        {/* 1. Speaker / Output Settings (Target Language + Mute Original) */}
+        <div className="flex items-center">
+          <button
+            onClick={() => setMuteOriginalAudio(!muteOriginalAudio)}
+            title={muteOriginalAudio ? "Unmute Original Audio" : "Mute Original Audio"}
+            className={cn(
+              controlButtonClasses,
+              "relative rounded-r-none border-r-0",
+              muteOriginalAudio ? "bg-red-500/20 text-red-400 border-red-500/50" : "hover:bg-white/10"
+            )}
+          >
+            {muteOriginalAudio ? <VolumeX size={20} /> : <Volume2 size={20} />}
+          </button>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger
               className={cn(
                 controlButtonClasses,
-                "cursor-pointer",
-                isTranslationEnabled && "bg-emerald-500/20 text-emerald-400 border-emerald-500/50"
+                "w-auto gap-1 rounded-l-none px-2 cursor-pointer",
+                translationLanguage !== "off" && "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
               )}
-              title="Translation Settings"
+              title="Target Language (TTS)"
             >
-              <Languages size={20} />
-              {translationLanguage !== "off" && (
-                <span className="ml-1 text-[10px] uppercase font-bold">{translationLanguage}</span>
-              )}
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent className="border-white/10 bg-black/90 text-white max-h-[300px] overflow-y-auto">
-            <DropdownMenuItem
-              className="cursor-pointer font-semibold"
-              onClick={() => setIsTranslationEnabled(!isTranslationEnabled)}
-            >
-              {isTranslationEnabled ? "Disable Translation" : "Enable Translation"}
-            </DropdownMenuItem>
-            <DropdownMenuSeparator className="border-white/10" />
-            <div className="px-2 py-1.5 text-xs font-semibold text-white/50">Target Language</div>
-            {["off", "es", "fr", "de", "it", "pt", "zh", "ja", "ko", "ru"].map((lang) => (
+              <span className="text-[10px] font-bold uppercase">
+                {translationLanguage === "off" ? "OFF" : translationLanguage}
+              </span>
+              <ChevronDown size={12} />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="border-white/10 bg-black/90 text-white max-h-[300px] overflow-y-auto w-48">
               <DropdownMenuItem
-                key={lang}
-                className={cn("cursor-pointer", translationLanguage === lang && "bg-white/10 text-emerald-400")}
-                onClick={() => setTranslationLanguage(lang)}
+                className="cursor-pointer"
+                onClick={() => setMuteOriginalAudio(!muteOriginalAudio)}
               >
-                {lang === "off" ? "Off" : lang.toUpperCase()}
+                <div className="flex w-full items-center justify-between">
+                  <span>Mute Original Audio</span>
+                  {muteOriginalAudio && <Check size={14} className="text-emerald-400" />}
+                </div>
               </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+              <DropdownMenuSeparator className="border-white/10" />
+              <div className="px-2 py-1.5 text-xs font-semibold text-white/50">Target Language (TTS)</div>
+              <DropdownMenuItem
+                className={cn("cursor-pointer", translationLanguage === "off" && "bg-white/10 text-emerald-400")}
+                onClick={() => setTranslationLanguage("off")}
+              >
+                <span>No Translation</span>
+                {translationLanguage === "off" && <Check size={14} />}
+              </DropdownMenuItem>
 
-        {/* 2. Speaker Toggle (Mute Original Audio) */}
-        <button
-          onClick={() => setMuteOriginalAudio((prev: boolean) => !prev)}
-          title={muteOriginalAudio ? "Unmute Original Audio" : "Mute Original Audio (hear only translations)"}
-          className={cn(
-            controlButtonClasses,
-            "cursor-pointer",
-            muteOriginalAudio && "bg-red-500/20 text-red-400 border-red-500/50"
-          )}
-        >
-          {muteOriginalAudio ? <VolumeX size={20} /> : <Volume2 size={20} />}
-        </button>
+              {TARGET_LANGUAGES.map((lang) => (
+                <DropdownMenuItem
+                  key={lang.value}
+                  className={cn("cursor-pointer", translationLanguage === lang.value && "bg-white/10 text-emerald-400")}
+                  onClick={() => {
+                    setTranslationLanguage(lang.value);
+                    if (lang.value !== "off") setIsTranslationEnabled(true);
+                  }}
+                >
+                  <div className="flex w-full items-center justify-between">
+                    <span>{lang.label}</span>
+                    {translationLanguage === lang.value && <Check size={14} />}
+                  </div>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
 
-        {/* 3. Mic Dropdown (With Source Language Selection) */}
+        {/* 2. Mic / Input Settings (Source Language) */}
         <div className="flex items-center">
           <button
             onClick={() => microphone.toggle()}
@@ -452,15 +469,18 @@ const MeetingRoomContent = ({
               </span>
               <ChevronDown size={12} />
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="border-white/10 bg-black/90 text-white max-h-[300px] overflow-y-auto">
-              <div className="px-2 py-1.5 text-xs font-semibold text-white/50">Details: Speaking Language</div>
-              {["en", "es", "fr", "de", "it", "pt", "zh", "ja", "ko", "ru"].map((lang) => (
+            <DropdownMenuContent className="border-white/10 bg-black/90 text-white max-h-[300px] overflow-y-auto w-48">
+              <div className="px-2 py-1.5 text-xs font-semibold text-white/50">Speaking Language</div>
+              {SPEAKER_LANGUAGES.map((lang) => (
                 <DropdownMenuItem
-                  key={lang}
-                  className={cn("cursor-pointer", sourceLanguage === lang && "bg-white/10 text-emerald-400")}
-                  onClick={() => setSourceLanguage(lang)}
+                  key={lang.value}
+                  className={cn("cursor-pointer", sourceLanguage === lang.value && "bg-white/10 text-emerald-400")}
+                  onClick={() => setSourceLanguage(lang.value)}
                 >
-                  {lang.toUpperCase()}
+                  <div className="flex w-full items-center justify-between">
+                    <span>{lang.label}</span>
+                    {sourceLanguage === lang.value && <Check size={14} />}
+                  </div>
                 </DropdownMenuItem>
               ))}
             </DropdownMenuContent>
