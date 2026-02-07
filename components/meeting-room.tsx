@@ -44,7 +44,7 @@ import { useDeepgramSTT } from "@/hooks/use-deepgram-stt";
 import { EndCallButton } from "./end-call-button";
 import { Loader } from "./loader";
 import { TranscriptionOverlay } from "./transcription-overlay";
-import { TranslationSidebar } from "./translation-sidebar";
+import { TranscriptionOverlay } from "./transcription-overlay";
 import { TTSProvider, useTTS } from "./tts-provider";
 
 type CallLayoutType = "grid" | "speaker-left" | "speaker-right" | "gallery";
@@ -68,6 +68,8 @@ export const MeetingRoom = () => {
   const [translationLanguage, setTranslationLanguage] = useState<string>("off");
   const [sbUserId, setSbUserId] = useState<string | null>(null);
   const [muteOriginalAudio, setMuteOriginalAudio] = useState(false);
+
+  const [sourceLanguage, setSourceLanguage] = useState<string>("en");
 
   // Effect to mute/unmute all remote participant audio elements
   useEffect(() => {
@@ -160,7 +162,7 @@ export const MeetingRoom = () => {
   const webSpeech = useWebSpeechSTT({ language: "en-US", continuous: true });
 
   // Deepgram hook
-  const deepgram = useDeepgramSTT({ language: "en", model: "nova-2" });
+  const deepgram = useDeepgramSTT({ language: sourceLanguage, model: "nova-2" });
 
   // Automatic Deepgram STT trigger based on Microphone state
   useEffect(() => {
@@ -286,8 +288,11 @@ export const MeetingRoom = () => {
         setShowParticipants={setShowParticipants}
         translationLanguage={translationLanguage}
         setTranslationLanguage={setTranslationLanguage}
+        sourceLanguage={sourceLanguage}
+        setSourceLanguage={setSourceLanguage}
         sttProvider={sttProvider}
         setSTTProvider={setSTTProvider}
+        handleProviderChange={handleProviderChange}
         customTranscript={customTranscript}
         muteOriginalAudio={muteOriginalAudio}
         setMuteOriginalAudio={setMuteOriginalAudio}
@@ -309,15 +314,16 @@ const MeetingRoomContent = ({
   setShowParticipants,
   translationLanguage,
   setTranslationLanguage,
+  sourceLanguage,
+  setSourceLanguage,
   sttProvider,
   setSTTProvider,
+  handleProviderChange,
   customTranscript,
   muteOriginalAudio,
   setMuteOriginalAudio,
   toggleCaptions,
-  isCaptionsActive,
-  webSpeech,
-  deepgram
+  isCaptionsActive
 }: any) => {
   const call = useCall();
   const { user } = useUser();
@@ -368,20 +374,45 @@ const MeetingRoomContent = ({
 
       <div className="fixed bottom-0 left-0 right-0 z-50 flex w-full flex-wrap items-center justify-center gap-3 border-t border-white/10 bg-black/80 px-4 py-4 backdrop-blur-md">
 
-        {/* 1. Translate Toggle (Left of Speaker) */}
-        <button
-          onClick={() => setIsTranslationEnabled(!isTranslationEnabled)}
-          title={isTranslationEnabled ? "Disable Translation Audio" : "Enable Translation Audio"}
-          className={cn(
-            controlButtonClasses,
-            "cursor-pointer",
-            isTranslationEnabled && "bg-emerald-500/20 text-emerald-400 border-emerald-500/50"
-          )}
-        >
-          <Languages size={20} />
-        </button>
+        {/* 1. Translate Dropdown (With Language Selection) */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              className={cn(
+                controlButtonClasses,
+                "cursor-pointer",
+                isTranslationEnabled && "bg-emerald-500/20 text-emerald-400 border-emerald-500/50"
+              )}
+              title="Translation Settings"
+            >
+              <Languages size={20} />
+              {translationLanguage !== "off" && (
+                <span className="ml-1 text-[10px] uppercase font-bold">{translationLanguage}</span>
+              )}
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="border-white/10 bg-black/90 text-white max-h-[300px] overflow-y-auto">
+            <DropdownMenuItem
+              className="cursor-pointer font-semibold"
+              onClick={() => setIsTranslationEnabled(!isTranslationEnabled)}
+            >
+              {isTranslationEnabled ? "Disable Translation" : "Enable Translation"}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator className="border-white/10" />
+            <div className="px-2 py-1.5 text-xs font-semibold text-white/50">Target Language</div>
+            {["off", "es", "fr", "de", "it", "pt", "zh", "ja", "ko", "ru"].map((lang) => (
+              <DropdownMenuItem
+                key={lang}
+                className={cn("cursor-pointer", translationLanguage === lang && "bg-white/10 text-emerald-400")}
+                onClick={() => setTranslationLanguage(lang)}
+              >
+                {lang === "off" ? "Off" : lang.toUpperCase()}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
 
-        {/* 2. Speaker Toggle (Left of Mic) */}
+        {/* 2. Speaker Toggle (Mute Original Audio) */}
         <button
           onClick={() => setMuteOriginalAudio((prev: boolean) => !prev)}
           title={muteOriginalAudio ? "Unmute Original Audio" : "Mute Original Audio (hear only translations)"}
@@ -394,14 +425,48 @@ const MeetingRoomContent = ({
           {muteOriginalAudio ? <VolumeX size={20} /> : <Volume2 size={20} />}
         </button>
 
-        {/* 3. Mic Toggle */}
-        <button
-          onClick={() => microphone.toggle()}
-          title={isMute ? "Unmute Microphone" : "Mute Microphone"}
-          className={cn(controlButtonClasses, !isMute ? "text-emerald-400 border-emerald-500/30 bg-emerald-500/10" : "text-red-400 border-red-500/30 bg-red-500/10")}
-        >
-          {isMute ? <MicOff size={20} /> : <Mic size={20} />}
-        </button>
+        {/* 3. Mic Dropdown (With Source Language Selection) */}
+        <div className="flex items-center">
+          <button
+            onClick={() => microphone.toggle()}
+            title={isMute ? "Unmute Microphone" : "Mute Microphone"}
+            className={cn(
+              controlButtonClasses,
+              "relative rounded-r-none border-r-0",
+              !isMute ? "text-emerald-400 border-emerald-500/30 bg-emerald-500/10" : "text-red-400 border-red-500/30 bg-red-500/10"
+            )}
+          >
+            {isMute ? <MicOff size={20} /> : <Mic size={20} />}
+          </button>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              className={cn(
+                controlButtonClasses,
+                "w-auto gap-1 rounded-l-none px-2",
+                !isMute ? "text-emerald-400 border-emerald-500/30 bg-emerald-500/10" : "text-red-400 border-red-500/30 bg-red-500/10"
+              )}
+              title="Select Source Language"
+            >
+              <span className="text-[10px] font-medium uppercase">
+                {sourceLanguage}
+              </span>
+              <ChevronDown size={12} />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="border-white/10 bg-black/90 text-white max-h-[300px] overflow-y-auto">
+              <div className="px-2 py-1.5 text-xs font-semibold text-white/50">Details: Speaking Language</div>
+              {["en", "es", "fr", "de", "it", "pt", "zh", "ja", "ko", "ru"].map((lang) => (
+                <DropdownMenuItem
+                  key={lang}
+                  className={cn("cursor-pointer", sourceLanguage === lang && "bg-white/10 text-emerald-400")}
+                  onClick={() => setSourceLanguage(lang)}
+                >
+                  {lang.toUpperCase()}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
 
         {/* 4. Video Toggle */}
         <button
@@ -506,7 +571,7 @@ const MeetingRoomContent = ({
                   "cursor-pointer",
                   sttProvider === "stream" && "bg-white/10"
                 )}
-                onClick={() => setSTTProvider("stream")}
+                onClick={() => handleProviderChange("stream")}
               >
                 Stream (Built-in)
               </DropdownMenuItem>
@@ -516,14 +581,14 @@ const MeetingRoomContent = ({
                   "cursor-pointer",
                   sttProvider === "webspeech" && "bg-white/10"
                 )}
-                onClick={() => setSTTProvider("webspeech")}
+                onClick={() => handleProviderChange("webspeech")}
               >
                 Browser (Web Speech)
-                {!webSpeech.isSupported && (
+                {/* {!webSpeech.isSupported && (
                   <span className="ml-2 text-[10px] text-red-400">
                     Not Supported
                   </span>
-                )}
+                )} */}
               </DropdownMenuItem>
               <DropdownMenuSeparator className="border-white/10" />
               <DropdownMenuItem
@@ -531,7 +596,7 @@ const MeetingRoomContent = ({
                   "cursor-pointer",
                   sttProvider === "deepgram" && "bg-white/10"
                 )}
-                onClick={() => setSTTProvider("deepgram")}
+                onClick={() => handleProviderChange("deepgram")}
               >
                 Deepgram (Cloud)
               </DropdownMenuItem>
@@ -539,29 +604,9 @@ const MeetingRoomContent = ({
           </DropdownMenu>
         </div>
 
-        {/* 9. Language Picker (Separated from the Translate toggle as per sidebar pattern) */}
-        <TranslationSidebar
-          selectedLanguage={translationLanguage}
-          onLanguageSelect={setTranslationLanguage}
-          userId={effectiveUserId}
-          meetingId={call?.id || ""}
-        >
-          <div
-            className={cn(controlButtonClasses, "cursor-pointer flex items-center justify-center gap-1", {
-              "bg-emerald-500/20 text-emerald-400 border-emerald-500/50": translationLanguage !== "off"
-            })}
-            title="Translator (Select Language)"
-          >
-            <Languages size={20} />
-            <ChevronDown size={14} className={cn("text-white/50", {
-              "text-emerald-400/50": translationLanguage !== "off"
-            })} />
-          </div>
-        </TranslationSidebar>
-
         <CallStatsButton />
 
-        {/* 10. Participants Toggle */}
+        {/* 9. Participants Toggle */}
         <button
           onClick={() =>
             setShowParticipants((prev: boolean) => !prev)
@@ -573,7 +618,7 @@ const MeetingRoomContent = ({
           </div>
         </button>
 
-        {/* 11. End Call */}
+        {/* 10. End Call */}
         <EndCallButton />
       </div>
     </div>

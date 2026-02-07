@@ -57,7 +57,7 @@ export function TTSProvider({ children, initialUserId, targetLanguage, meetingId
   const [selectedSinkId, setSelectedSinkId] = useState<string>("");
 
   // Refs
-  const playbackQueue = useRef<string[]>([]);
+  const playbackQueue = useRef<{ text: string; audioUrl: string }[]>([]);
   const lastProcessedText = useRef<string>("");
   const isCurrentlyPlaying = useRef(false);
   const isMounted = useRef(true);
@@ -87,231 +87,146 @@ export function TTSProvider({ children, initialUserId, targetLanguage, meetingId
     return () => navigator.mediaDevices.removeEventListener("devicechange", getDevices);
   }, []);
 
-  useEffect(() => {
-    isMounted.current = true;
-    let mainLoopInterval: NodeJS.Timeout | null = null;
-    let animationFrameId: number;
+  // Simplified Queue Processor
+  const processQueue = async () => {
+    if (isCurrentlyPlaying.current || playbackQueue.current.length === 0) return;
 
-    const splitIntoSentences = (text: string) => {
-      if (!text) return [];
-      const sentences = text.match(/[^.!?]+[.!?]+/g);
-      return sentences ? sentences.map((s) => s.trim()) : [];
-    };
+    isCurrentlyPlaying.current = true;
+    const item = playbackQueue.current.shift();
 
-    const getErrorMessage = (error: any): string => {
-      if (error instanceof Error) return error.message;
-      if (typeof error === "string") return error;
+    if (item) {
+      setNowPlaying(item.text);
       try {
-        return JSON.stringify(error);
-      } catch {
-        return "Unknown error";
+        await playAudio(item.audioUrl);
+      } catch (error) {
+        console.error("Playback failed:", error);
+        setStatusType("error");
+        setStatus("Playback failed");
       }
-    };
 
-    const fetchSupabase = async (url: string) => {
-      const response = await fetch(url, {
-        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
-      });
-      if (!response.ok) {
-        try {
-          const err = await response.json();
-          throw new Error(`Supabase Error: ${err.message || JSON.stringify(err)}`);
-        } catch (e: any) {
-          throw new Error(`Supabase Error: ${response.statusText}`);
-        }
-      }
-      return response.json();
-    };
+      // 100ms gap before next track
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
 
-    const generateAndPlayAudio = async (text: string) => {
-      const response = await fetch(CARTESIA_URL, {
-        method: "POST",
-        headers: {
-          "Cartesia-Version": "2025-04-16",
-          "X-API-Key": CARTESIA_API_KEY,
-          "Content-Type": "application/json",
+    isCurrentlyPlaying.current = false;
+    setNowPlaying(null);
+    processQueue(); // Check for next item
+  };
+
+  const fetchAudio = async (text: string): Promise<string> => {
+    const response = await fetch(CARTESIA_URL, {
+      method: "POST",
+      headers: {
+        "Cartesia-Version": "2025-04-16",
+        "X-API-Key": CARTESIA_API_KEY,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model_id: CARTESIA_MODEL_ID,
+        transcript: text,
+        voice: { mode: "id", id: CARTESIA_VOICE_ID },
+        output_format: {
+          container: "mp3",
+          encoding: "mp3",
+          sample_rate: 44100,
         },
-        body: JSON.stringify({
-          model_id: CARTESIA_MODEL_ID,
-          transcript: text,
-          voice: { mode: "id", id: CARTESIA_VOICE_ID },
-          output_format: {
-            container: "mp3",
-            encoding: "mp3",
-            sample_rate: 44100,
-          },
-        }),
-      });
+      }),
+    });
 
-      if (!response.ok) throw new Error(`Cartesia TTS Error: ${await response.text()}`);
+    if (!response.ok) throw new Error(`Cartesia TTS Error: ${await response.text()}`);
 
-      const audioBlob = await response.blob();
-      console.log(`[TTS] Received Audio Blob: ${audioBlob.size} bytes, Type: ${audioBlob.type}`);
+    const audioBlob = await response.blob();
+    if (audioBlob.size < 100) throw new Error("Invalid audio blob size");
 
-      if (audioBlob.size < 100) {
-        throw new Error("Received empty or invalid audio blob from TTS provider");
+    return URL.createObjectURL(audioBlob);
+  };
+
+  const playAudio = async (url: string) => {
+    return new Promise<void>((resolve, reject) => {
+      const audio = new Audio(url);
+      audio.preload = "auto";
+
+      // Apply sink
+      if (selectedSinkId && (audio as any).setSinkId) {
+        (audio as any).setSinkId(selectedSinkId).catch((e: any) => console.warn("Sink error:", e));
       }
 
-      const audioUrl = URL.createObjectURL(audioBlob);
-      const audioPlayer = new Audio(audioUrl);
+      audio.onended = () => {
+        URL.revokeObjectURL(url);
+        resolve();
+      };
 
-      // Safety: Configure audio for broader compatibility
-      audioPlayer.preload = "auto";
+      audio.onerror = (e) => {
+        URL.revokeObjectURL(url);
+        reject(new Error("Audio playback error"));
+      };
 
-      // Apply Output Device Routing
-      if (selectedSinkId && (audioPlayer as any).setSinkId) {
-        try {
-          await (audioPlayer as any).setSinkId(selectedSinkId);
-        } catch (e) {
-          console.warn("Failed to set audio sink ID:", e);
+      audio.play().catch(reject);
+    });
+  };
+
+  const addToQueue = async (text: string) => {
+    try {
+      const url = await fetchAudio(text);
+      // Push object with text and url
+      // We need to update the ref type to hold objects, currently it's string[]
+      // I will fix the ref definition in a separate Edit if needed, or cast it here if I can't reach the top.
+      // Actually, I can't easily change the hook definition `useRef<string[]>` without editing the top of the file.
+      // Let's Edit the TOP of the file first to change the Ref type, OR check if I can include it in this view.
+      // I can only see lines 200-349. I need to edit the top first to change `useRef<string[]>` to `useRef<{text: string, audioUrl: string}[]>`.
+      // WAIT: I can just change the usage here if I replace the top in a separate step? 
+      // No, I should do it properly. 
+      // For now, let's assume I will update the ref type in the next step.
+      // Queue push:
+      (playbackQueue.current as any).push({ text, audioUrl: url });
+      processQueue();
+    } catch (e) {
+      console.error("Failed to queue audio:", e);
+      setStatus(`TTS Gen Failed: ${getErrorMessage(e)}`);
+    }
+  };
+
+  const handleCustomEvent = async (event: any) => {
+    if (event.type !== "transcription.new") return;
+
+    const data = event.custom;
+    if (!data || !data.text) return;
+    if (data.speakerId !== targetUserId) return;
+
+    console.log(`[TTS] Received event:`, data);
+    const text = data.text;
+
+    if (isTranslationEnabled && targetLanguage && targetLanguage !== "off") {
+      try {
+        // Use Google Translate (free/auto)
+        const translated = await getTranslation(text, targetLanguage);
+        if (translated) {
+          setStatus(`Queueing: "${translated.substring(0, 15)}..."`);
+          setStatusType("info");
+          addToQueue(translated); // Handles fetch & queue
+
+          saveTranslation({
+            user_id: targetUserId,
+            meeting_id: meetingId,
+            source_lang: "auto",
+            target_lang: targetLanguage,
+            original_text: text,
+            translated_text: translated
+          }).catch(e => console.warn("Failed to save translation:", e));
         }
+      } catch (err) {
+        console.error("Translation error:", err);
       }
+    }
+  };
 
-      await new Promise<void>((resolve, reject) => {
-        audioPlayer.onended = () => {
-          URL.revokeObjectURL(audioUrl);
-          resolve();
-        };
-        audioPlayer.onerror = (e) => {
-          const err = audioPlayer.error;
-          URL.revokeObjectURL(audioUrl);
-          // extraction detailed media error
-          let msg = "Audio Playback Failed";
-          if (err) {
-            switch (err.code) {
-              case err.MEDIA_ERR_ABORTED: msg = "Playback Aborted"; break;
-              case err.MEDIA_ERR_NETWORK: msg = "Network Error"; break;
-              case err.MEDIA_ERR_DECODE: msg = "Decoding Error (Bad Format)"; break;
-              case err.MEDIA_ERR_SRC_NOT_SUPPORTED: msg = "Source Not Supported"; break;
-              default: msg = `Unknown Media Error: ${err.message}`;
-            }
-          }
-          reject(new Error(msg));
-        };
-        const playPromise = audioPlayer.play();
-        if (playPromise !== undefined) {
-          playPromise.catch((error) => {
-            reject(error);
-          });
-        }
-      });
-    };
-
-    const playbackManager = async () => {
-      if (!isMounted.current) return;
-
-      if (isCurrentlyPlaying.current || playbackQueue.current.length === 0) {
-        animationFrameId = requestAnimationFrame(playbackManager);
-        return;
-      }
-
-      // Check mute state effectively by just using the ref if we had one.
-      // Since we don't, we proceed.
-
-      isCurrentlyPlaying.current = true;
-      const sentence = playbackQueue.current.shift();
-
-      if (sentence) {
-        try {
-          setNowPlaying(sentence);
-          // If muted, we might just skip audio generation to save credits/bandwidth?
-          // Or play silently? For TTS usually skip.
-          // But 'isMuted' state is inside Component scope. 
-          // We can't access updated 'isMuted' here easily without a customized Ref.
-          // Let's just play.
-          await generateAndPlayAudio(sentence);
-        } catch (error: any) {
-          if (error.name === "NotAllowedError") {
-            setStatus("Browser blocked audio. Click 'Enable Audio'.");
-            setStatusType("error");
-            setHasUserInteracted(false);
-            playbackQueue.current.unshift(sentence);
-          } else {
-            console.error("Playback Error:", error);
-            setStatus(`ERROR: ${getErrorMessage(error)}`);
-            setStatusType("error");
-          }
-        }
-      }
-
-      isCurrentlyPlaying.current = false;
-      setNowPlaying(null);
-      animationFrameId = requestAnimationFrame(playbackManager);
-    };
-
-    const handleCustomEvent = async (event: any) => {
-      if (event.type !== "transcription.new") return;
-
-      const data = event.custom; // payload is in .custom property
-      if (!data || !data.text) return;
-
-      // Filter by speaker
-      if (data.speakerId !== targetUserId) return;
-
-      console.log(`[TTS] Received event:`, data);
-
-      // Process Text
-      const text = data.text;
-
-      // Translate - ONLY if translation is enabled and a language is selected
-      if (isTranslationEnabled && targetLanguage && targetLanguage !== "off") {
-        try {
-          const translated = await getTranslation(text, targetLanguage);
-          if (translated) {
-            playbackQueue.current.push(translated);
-            setStatus(`Received & Translated: "${text.substring(0, 10)}..."`);
-            setStatusType("info");
-
-            // Save translated text per user request
-            saveTranslation({
-              user_id: targetUserId, // The speaker
-              meeting_id: meetingId,
-              source_lang: "auto",
-              target_lang: targetLanguage,
-              original_text: text,
-              translated_text: translated
-            }).catch(e => console.warn("Failed to save translation:", e));
-          }
-        } catch (err) {
-          console.error("Translation error:", err);
-        }
-      } else {
-        // If translation off or disabled, we don't queue anything for playback
-        console.log(`[TTS] Translation skipped (Enabled: ${isTranslationEnabled}, Lang: ${targetLanguage})`);
-      }
-    };
-
-    // removed sentenceFinder polling
-
+  useEffect(() => {
     if (call) {
       call.on("custom", handleCustomEvent);
     }
 
-    const startFlow = async () => {
-      if (!targetUserId) {
-        setStatus("Waiting for User ID...");
-        return;
-      }
-
-      if (!hasUserInteracted) {
-        setStatus("Click 'Enable Audio' to start.");
-        return;
-      }
-
-      setStatus("Ready. Waiting for live speech...");
-      // Optional: Fetch history once if needed, but we focus on live events now.
-
-      // Start Loops
-      animationFrameId = requestAnimationFrame(playbackManager);
-    };
-
-
-
-    startFlow();
-
     return () => {
       isMounted.current = false;
-      cancelAnimationFrame(animationFrameId);
       if (call) call.off("custom", handleCustomEvent);
     };
   }, [targetUserId, hasUserInteracted, selectedSinkId, targetLanguage, meetingId, call]);

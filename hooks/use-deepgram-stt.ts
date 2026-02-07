@@ -54,6 +54,18 @@ export function useDeepgramSTT(
     setIsListening(false);
   }, []);
 
+  // Restart logic if language or model changes while listening
+  useEffect(() => {
+    if (isListening) {
+      console.log("[useDeepgramSTT] Language or model changed, restarting...");
+      stop();
+      // Allow state to update before restarting
+      setTimeout(() => {
+        start().catch((e) => console.error("Failed to restart Deepgram after config change:", e));
+      }, 100);
+    }
+  }, [language, model]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const start = useCallback(async () => {
     setError(null);
 
