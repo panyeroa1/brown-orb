@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  CallParticipantsList,
   CallStatsButton,
   CallingState,
   PaginatedGridLayout,
@@ -12,7 +11,6 @@ import {
 import {
   ClosedCaption,
   LayoutList,
-  Users,
   ChevronDown,
   VolumeX,
   Volume2,
@@ -21,7 +19,6 @@ import {
   Video,
   VideoOff,
   Monitor,
-  UserPlus,
   Check
 } from "lucide-react";
 import { signInAnonymously } from "@/lib/supabase";
@@ -548,7 +545,7 @@ const MeetingRoomContent = ({
               title="Select STT Provider"
             >
               <span className="text-[10px] font-medium">
-                {STT_PROVIDER_LABELS[sttProvider]}
+                {STT_PROVIDER_LABELS[sttProvider as STTProvider]}
               </span>
               <ChevronDown size={12} />
             </DropdownMenuTrigger>

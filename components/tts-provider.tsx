@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useRef, useState } from "react";
+import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from "react";
 import { useCall } from "@stream-io/video-react-sdk";
 import { getTranslation, saveTranslation } from "@/lib/translate-service";
 
@@ -196,7 +196,7 @@ export function TTSProvider({ children, initialUserId, targetLanguage, meetingId
     }
   };
 
-  const handleCustomEvent = async (event: any) => {
+  const handleCustomEvent = useCallback(async (event: any) => {
     if (event.type !== "transcription.new") return;
 
     const data = event.custom;
@@ -228,7 +228,7 @@ export function TTSProvider({ children, initialUserId, targetLanguage, meetingId
         console.error("Translation error:", err);
       }
     }
-  };
+  }, [targetUserId, isTranslationEnabled, targetLanguage, meetingId, addToQueue]);
 
   useEffect(() => {
     if (call) {
@@ -239,8 +239,7 @@ export function TTSProvider({ children, initialUserId, targetLanguage, meetingId
       isMounted.current = false;
       if (call) call.off("custom", handleCustomEvent);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [targetUserId, hasUserInteracted, selectedSinkId, targetLanguage, meetingId, call]);
+  }, [call, handleCustomEvent]);
 
   const enableAudio = () => {
     setHasUserInteracted(true);
