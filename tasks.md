@@ -464,6 +464,48 @@ How it was tested:
 
 Test result:
 - PASS
+Task ID: T-0024
+Title: Re-integrate and Add Meeting Control Icons
+Status: TODO
+Owner: Miles
+Related repo or service: brown-orb
+Branch: main
+Created: 2026-02-07 14:30
+Last updated: 2026-02-07 14:30
 
+START LOG (fill this before you start coding)
 
+Timestamp: 2026-02-07 14:30
+Current behavior or state:
+- Participant list and associated icon were removed.
+- Recording control is missing.
+- Share/Invite link functionality is not easily accessible in the main footer.
+
+Plan and scope for this task:
+- Re-add the `Users` icon for toggling the participant list.
+- Implement/Re-add the `CallParticipantsList` component.
+- Add a `Recording` toggle icon (using `Radio` from Lucide).
+- Add a `Share` icon with "Copy to Clipboard" functionality, placed near `End Call`.
+- Set STT to Deepgram exclusively and remove the provider selection UI.
+- Add a dedicated `LayoutGrid` button for grid view.
+- Ensure all icons follow the unified footer style.
+
+Files or modules expected to change:
+- components/meeting-room.tsx
+
+Risks or things to watch out for:
+- Footer overcrowding.
+- Recording permissions and SDK state handling.
+
+WORK CHECKLIST
+
+- [ ] Re-add `Users` icon and toggle logic
+- [ ] Re-integrate `CallParticipantsList`
+- [ ] Add `Recording` toggle (logic + icon)
+- [ ] Add `Share` icon with copy-to-clipboard (near End Call)
+- [ ] Set STT to Deepgram exclusively and remove provider selection UI
+- [ ] Add dedicated `LayoutGrid` button
+- [ ] Verify build and layout
+
+END LOG (fill this after you finish coding and testing)
 
